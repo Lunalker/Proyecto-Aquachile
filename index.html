@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AquaChile - Gestión de Evaluaciones Psicolaborales</title>
+    <!-- Bootstrap 5 CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- FontAwesome Icons -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Custom CSS -->
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+    <!-- Sidebar Navigation -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <div class="logo-box">
+                <i class="fa-solid fa-fish-fins logo-icon"></i>
+            </div>
+            <div class="brand-text">
+                <h5>AquaChile</h5>
+                <span>Psicolaboral VCM</span>
+            </div>
+        </div>
+        
+        <div class="user-role-card mt-3 mb-4">
+            <small class="text-uppercase text-muted fw-bold d-block mb-1" style="font-size: 0.7rem;">Rol Activo</small>
+            <div class="d-flex align-items-center justify-content-between">
+                <span id="currentRoleLabel" class="fw-semibold text-white">Analista</span>
+                <button class="btn btn-sm btn-outline-light py-0 px-2" onclick="toggleRole()" title="Cambiar Rol">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                </button>
+            </div>
+        </div>
+
+        <nav class="nav flex-column">
+            <a class="nav-link active" href="#" onclick="navigateTo('dashboard', event)">
+                <i class="fa-solid fa-chart-pie me-2"></i> Dashboard
+            </a>
+            <a class="nav-link" href="#" onclick="navigateTo('candidatos', event)">
+                <i class="fa-solid fa-users me-2"></i> Candidatos
+            </a>
+            <a class="nav-link" href="#" onclick="navigateTo('solicitudes', event)">
+                <i class="fa-solid fa-clipboard-list me-2"></i> Solicitudes
+            </a>
+            <a class="nav-link" href="#" onclick="navigateTo('evaluaciones', event)">
+                <i class="fa-solid fa-clipboard-check me-2"></i> Evaluaciones
+            </a>
+            <a class="nav-link" href="#" onclick="navigateTo('automatizacion', event)">
+                <i class="fa-solid fa-wand-magic-sparkles me-2"></i> Insumos / Copilot
+            </a>
+        </nav>
+
+        <div class="sidebar-footer">
+            <p class="mb-0 small text-muted">MVP Full Stack II - VCM</p>
+        </div>
+    </aside>
+
+    <!-- Main Content Area -->
+    <main class="main-content">
+        <!-- Top Navbar -->
+        <header class="top-navbar d-flex justify-content-between align-items-center mb-4">
+            <div class="d-flex align-items-center gap-3">
+                <button class="btn btn-light d-md-none" onclick="toggleSidebar()">
+                    <i class="fa-solid fa-bars"></i>
+                </button>
+                <h4 id="pageTitle" class="mb-0 font-weight-bold text-navy">Dashboard General</h4>
+            </div>
+            <div class="d-flex align-items-center gap-3">
+                <div class="badge bg-navy p-2 px-3 rounded-pill text-white shadow-sm">
+                    <i class="fa-solid fa-server me-1 text-teal"></i> Backend Monolítico (Simulado)
+                </div>
+            </div>
+        </header>
+
+        <!-- SECCIÓN: DASHBOARD -->
+        <section id="section-dashboard" class="content-section">
+            <div class="row g-3 mb-4">
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card border-left-navy">
+                        <div class="stat-icon bg-navy-light text-navy"><i class="fa-solid fa-user-group"></i></div>
+                        <div>
+                            <div class="stat-value" id="statTotalCandidatos">0</div>
+                            <div class="stat-label">Total Candidatos</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card border-left-warning">
+                        <div class="stat-icon bg-warning-light text-warning"><i class="fa-solid fa-clock"></i></div>
+                        <div>
+                            <div class="stat-value" id="statPendientes">0</div>
+                            <div class="stat-label">Solicitudes Pendientes</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card border-left-info">
+                        <div class="stat-icon bg-info-light text-info"><i class="fa-solid fa-spinner"></i></div>
+                        <div>
+                            <div class="stat-value" id="statEnProceso">0</div>
+                            <div class="stat-label">En Proceso</div>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-md-3 col-sm-6">
+                    <div class="stat-card border-left-success">
+                        <div class="stat-icon bg-success-light text-success"><i class="fa-solid fa-check-circle"></i></div>
+                        <div>
+                            <div class="stat-value" id="statFinalizadas">0</div>
+                            <div class="stat-label">Evaluaciones Finalizadas</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4">
+                <div class="col-lg-7">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white py-3 border-0">
+                            <h6 class="m-0 font-weight-bold text-navy"><i class="fa-solid fa-chart-bar me-2 text-teal"></i>Estado de Solicitudes</h6>
+                        </div>
+                        <div class="card-body">
+                            <canvas id="chartEstados" height="230"></canvas>
+                        </div>
+                    </div>
+                </div>
+                <div class="col-lg-5">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white py-3 border-0">
+                            <h6 class="m-0 font-weight-bold text-navy"><i class="fa-solid fa-chart-pie me-2 text-teal"></i>Distribución por Familia de Cargo</h6>
+                        </div>
+                        <div class="card-body d-flex justify-content-center align-items-center">
+                            <canvas id="chartFamilias" height="230"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: CANDIDATOS -->
+        <section id="section-candidatos" class="content-section d-none">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div class="d-flex gap-2 flex-grow-1" style="max-width: 500px;">
+                        <input type="text" id="searchCandidato" class="form-control" placeholder="Buscar por nombre, correo o teléfono..." onkeyup="renderCandidatos()">
+                        <select id="filterFamiliaCandidato" class="form-select" style="max-width: 200px;" onchange="renderCandidatos()">
+                            <option value="">Todas las familias</option>
+                            <option value="Operaciones">Operaciones</option>
+                            <option value="Profesional/Técnico">Profesional/Técnico</option>
+                            <option value="Jefaturas">Jefaturas</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-navy" onclick="openModalCandidato()">
+                        <i class="fa-solid fa-plus me-1"></i> Registrar Candidato
+                    </button>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Nombre</th>
+                                    <th>Correo Electrónico</th>
+                                    <th>Teléfono</th>
+                                    <th>Cargo Postula</th>
+                                    <th>Familia Cargo</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblCandidatosBody">
+                                <!-- Render dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: SOLICITUDES -->
+        <section id="section-solicitudes" class="content-section d-none">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div class="d-flex gap-2 flex-grow-1" style="max-width: 500px;">
+                        <input type="text" id="searchSolicitud" class="form-control" placeholder="Buscar solicitud..." onkeyup="renderSolicitudes()">
+                        <select id="filterEstadoSolicitud" class="form-select" style="max-width: 180px;" onchange="renderSolicitudes()">
+                            <option value="">Todos los estados</option>
+                            <option value="Pendiente">Pendiente</option>
+                            <option value="En proceso">En proceso</option>
+                            <option value="Finalizada">Finalizada</option>
+                        </select>
+                    </div>
+                    <button class="btn btn-navy" onclick="openModalSolicitud()">
+                        <i class="fa-solid fa-file-circle-plus me-1"></i> Crear Solicitud
+                    </button>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>ID Solicitud</th>
+                                    <th>Candidato</th>
+                                    <th>Cargo & Familia</th>
+                                    <th>Fecha Solicitud</th>
+                                    <th>Evaluador</th>
+                                    <th>Estado</th>
+                                    <th class="text-end">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblSolicitudesBody">
+                                <!-- Render dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: EVALUACIONES -->
+        <section id="section-evaluaciones" class="content-section d-none">
+            <div class="card shadow-sm border-0 mb-4">
+                <div class="card-body">
+                    <h6 class="font-weight-bold text-navy mb-3"><i class="fa-solid fa-stethoscope me-2 text-teal"></i>Gestión e Informes Psicolaborales</h6>
+                    <p class="text-muted small">Selecciona una solicitud para gestionar la evaluación, subir o redactar notas de entrevista y generar conclusiones con el asistente inteligente Copilot.</p>
+                </div>
+            </div>
+
+            <div class="card shadow-sm border-0">
+                <div class="card-body p-0">
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle mb-0">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Candidato</th>
+                                    <th>Cargo</th>
+                                    <th>Fecha Evaluación</th>
+                                    <th>Evaluador Responsable</th>
+                                    <th>Estado</th>
+                                    <th class="text-end">Gestión</th>
+                                </tr>
+                            </thead>
+                            <tbody id="tblEvaluacionesBody">
+                                <!-- Render dinámico -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECCIÓN: AUTOMATIZACIÓN & INSUMOS (Copilot/OneDrive Vision) -->
+        <section id="section-automatizacion" class="content-section d-none">
+            <div class="row g-4">
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white py-3">
+                            <h6 class="m-0 font-weight-bold text-navy"><i class="fa-brands fa-microsoft me-2 text-primary"></i>Simulador de Insumos Corporativos (OneDrive / SharePoint)</h6>
+                        </div>
+                        <div class="card-body">
+                            <p class="text-muted small">De acuerdo a la arquitectura proyectada, la selección de familia de cargo genera automáticamente carpetas e insumos en la nube:</p>
+                            
+                            <div class="mb-3">
+                                <label class="form-label font-weight-bold">Seleccionar Familia de Cargo:</label>
+                                <select id="selectFamiliaInsumo" class="form-select" onchange="actualizarSimuladorInsumos()">
+                                    <option value="Operaciones">Operaciones</option>
+                                    <option value="Profesional/Técnico">Profesional/Técnico</option>
+                                    <option value="Jefaturas">Jefaturas</option>
+                                </select>
+                            </div>
+
+                            <div class="p-3 bg-light rounded border">
+                                <h6 class="text-navy mb-2"><i class="fa-regular fa-folder-open me-2 text-warning"></i>Carpeta del Candidato: <span id="folderPath">/OneDrive/Evaluaciones/Operaciones/</span></h6>
+                                <ul class="list-group list-group-flush small" id="listInsumos">
+                                    <li class="list-group-item bg-transparent"><i class="fa-regular fa-file-excel text-success me-2"></i>Informe_Psicolaboral_Operaciones.xlsx</li>
+                                    <li class="list-group-item bg-transparent"><i class="fa-regular fa-file-word text-primary me-2"></i>Pauta_Entrevista_Operaciones.docx</li>
+                                    <li class="list-group-item bg-transparent"><i class="fa-regular fa-file-pdf text-danger me-2"></i>CV_Candidato.pdf</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6">
+                    <div class="card shadow-sm border-0 h-100">
+                        <div class="card-header bg-white py-3">
+                            <h6 class="m-0 font-weight-bold text-navy"><i class="fa-solid fa-robot me-2 text-teal"></i>Visión de Integración Copilot & Agente IA</h6>
+                        </div>
+                        <div class="card-body">
+                            <div class="alert alert-info border-0 shadow-sm small">
+                                <i class="fa-solid fa-info-circle me-1"></i> Este módulo representa la evolución del MVP Full Stack II hacia la suite corporativa de AquaChile.
+                            </div>
+                            <ol class="small text-muted ps-3">
+                                <li class="mb-2"><strong>Transcripción Automática:</strong> Los apuntes de voz durante la entrevista se convierten en texto.</li>
+                                <li class="mb-2"><strong>Sintesis Copilot:</strong> El agente analiza fortalezas y brechas según la pauta corporativa.</li>
+                                <li class="mb-2"><strong>Relleno del Excel:</strong> La información estructurada se mapea directamente al archivo de informe.</li>
+                            </ol>
+                            <div class="p-3 bg-dark text-green-tech rounded font-monospace small" style="min-height: 100px;">
+                                > [SYSTEM]: Agente Copilot conectado.<br>
+                                > [PROMPT]: Extrayendo competencias clave de la pauta de entrevista...<br>
+                                > [STATUS]: Listo para exportación al informe general.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- MODAL: REGISTRAR / EDITAR CANDIDATO -->
+    <div class="modal fade" id="modalCandidato" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-navy text-white">
+                    <h5 class="modal-title" id="modalCandidatoTitle">Registrar Candidato</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formCandidato" onsubmit="saveCandidato(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="candId">
+                        <div class="mb-3">
+                            <label class="form-label">Nombre Completo *</label>
+                            <input type="text" id="candNombre" class="form-control" required placeholder="Ej: María González">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Correo Electrónico *</label>
+                            <input type="email" id="candCorreo" class="form-control" required placeholder="ejemplo@aquachile.com">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Teléfono *</label>
+                            <input type="tel" id="candTelefono" class="form-control" required placeholder="+56 9 1234 5678">
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Familia de Cargo *</label>
+                            <select id="candFamilia" class="form-select" required onchange="updateCargosByFamilia('candFamilia', 'candCargo')">
+                                <option value="">Seleccione...</option>
+                                <option value="Operaciones">Operaciones</option>
+                                <option value="Profesional/Técnico">Profesional/Técnico</option>
+                                <option value="Jefaturas">Jefaturas</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Cargo al que Postula *</label>
+                            <select id="candCargo" class="form-select" required>
+                                <option value="">Seleccione primero familia de cargo...</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-navy">Guardar Candidato</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: NUEVA SOLICITUD DE EVALUACIÓN -->
+    <div class="modal fade" id="modalSolicitud" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-navy text-white">
+                    <h5 class="modal-title">Crear Solicitud de Evaluación</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formSolicitud" onsubmit="saveSolicitud(event)">
+                    <div class="modal-body">
+                        <div class="mb-3">
+                            <label class="form-label">Candidato *</label>
+                            <select id="solCandidatoId" class="form-select" required onchange="onSolicitudCandidatoChange()">
+                                <option value="">Seleccione candidato...</option>
+                            </select>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Familia de Cargo</label>
+                                <input type="text" id="solFamiliaDisplay" class="form-control bg-light" readonly placeholder="Auto...">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Cargo</label>
+                                <input type="text" id="solCargoDisplay" class="form-control bg-light" readonly placeholder="Auto...">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Psicólogo Evaluador Responsable *</label>
+                            <select id="solEvaluador" class="form-select" required>
+                                <option value="Ps. Roberto Silva">Ps. Roberto Silva</option>
+                                <option value="Ps. Camila Henríquez">Ps. Camila Henríquez</option>
+                                <option value="Ps. Javier Morales">Ps. Javier Morales</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Observaciones Iniciales / Contexto</label>
+                            <textarea id="solObservaciones" class="form-control" rows="3" placeholder="Detalles de la postulación o requerimientos especiales..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-navy">Generar Solicitud</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- MODAL: GESTIONAR EVALUACIÓN -->
+    <div class="modal fade" id="modalEvaluacion" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content border-0 shadow">
+                <div class="modal-header bg-navy text-white">
+                    <h5 class="modal-title">Gestión de Evaluación Psicolaboral</h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form id="formEvaluacion" onsubmit="saveEvaluacion(event)">
+                    <div class="modal-body">
+                        <input type="hidden" id="evalSolicitudId">
+                        
+                        <div class="card bg-light border-0 mb-3">
+                            <div class="card-body">
+                                <div class="row">
+                                    <div class="col-md-6">
+                                        <p class="mb-1"><strong>Candidato:</strong> <span id="evalCandNombre">-</span></p>
+                                        <p class="mb-0"><strong>Cargo:</strong> <span id="evalCandCargo">-</span></p>
+                                    </div>
+                                    <div class="col-md-6 text-md-end">
+                                        <p class="mb-1"><strong>Evaluador:</strong> <span id="evalEvaluador">-</span></p>
+                                        <p class="mb-0"><strong>Estado Actual:</strong> <span id="evalEstadoBadge" class="badge bg-secondary">Pendiente</span></p>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Fecha de Evaluación *</label>
+                                <input type="date" id="evalFecha" class="form-control" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Estado de la Solicitud *</label>
+                                <select id="evalEstado" class="form-select" required>
+                                    <option value="Pendiente">Pendiente</option>
+                                    <option value="En proceso">En proceso</option>
+                                    <option value="Finalizada">Finalizada</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Apuntes de Entrevista / Transcripción</label>
+                            <textarea id="evalApuntes" class="form-control" rows="4" placeholder="Ingrese notas de la pauta de entrevista..."></textarea>
+                        </div>
+
+                        <div class="mb-3">
+                            <div class="d-flex justify-content-between align-items-center mb-1">
+                                <label class="form-label font-weight-bold mb-0">Resultado y Observaciones del Informe</label>
+                                <button type="button" class="btn btn-sm btn-outline-teal" onclick="simularSintesisCopilot()">
+                                    <i class="fa-solid fa-wand-magic-sparkles me-1"></i> Generar Síntesis Copilot
+                                </button>
+                            </div>
+                            <textarea id="evalResultado" class="form-control" rows="4" placeholder="Conclusiones del informe psicolaboral, fortalezas y recomendaciones..."></textarea>
+                        </div>
+                    </div>
+                    <div class="modal-footer bg-light">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cerrar</button>
+                        <button type="submit" class="btn btn-navy">Guardar Cambios</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- Container para Notificaciones Toast -->
+    <div class="toast-container position-fixed bottom-0 end-0 p-3" style="z-index: 1080;">
+        <div id="appToast" class="toast align-items-center text-white bg-navy border-0" role="alert" aria-live="assertive" aria-atomic="true">
+            <div class="d-flex">
+                <div class="toast-body d-flex align-items-center gap-2">
+                    <i class="fa-solid fa-circle-check text-teal" id="toastIcon"></i>
+                    <span id="toastMessage">Operación realizada con éxito.</span>
+                </div>
+                <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- Custom Application Logic -->
+    <script src="app.js"></script>
+</body>
+</html>
