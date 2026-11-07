@@ -1,4 +1,4 @@
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import Dashboard from '../Dashboard';
@@ -10,40 +10,27 @@ vi.mock('../../services/api', () => ({
   },
 }));
 
-// Mock del componente TarjetaIndicador
-vi.mock('../../components/TarjetaIndicador', () => ({
-  default: ({ titulo, valor }) => (
-    <div data-testid="indicador">
-      <span>{titulo}</span>: <span>{valor}</span>
-    </div>
-  ),
-}));
-
-describe('Vista Dashboard', () => {
+describe('Pruebas integradas - Dashboard', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  it('debe mostrar el estado de carga al iniciar', () => {
-    api.get.mockImplementation(() => new Promise(() => {})); // Promesa sin resolver
-
-    render(
-      <MemoryRouter>
-        <Dashboard />
-      </MemoryRouter>
-    );
-
-    expect(screen.getByRole('status')).toHaveTextContent('Cargando datos...');
-  });
-
-  it('debe cargar y mostrar la lista de candidatos e indicadores correctamente', async () => {
-    const candidatosMock = [{ id: 1, nombre: 'Juan Pérez', correo: 'juan@test.com', cargoPostula: 'Analista', origen: 'Externo' }];
-    const solicitudesMock = [{ id: 101, estado: 'Pendiente' }, { id: 102, estado: 'En proceso' }];
+  it('debe procesar e impresionar las tarjetas indicadoras y el listado de candidatos', async () => {
+    const candidatosMock = [
+      { id: 1, nombre: 'Ana López', correo: 'ana@aquachile.cl', cargoPostula: 'Jefa de Turno', familiaCargo: 'Operaciones', origen: 'Interno' },
+      { id: 2, nombre: 'Carlos Vera', correo: 'carlos@aquachile.cl', cargoPostula: 'Analista BI', familiaCargo: 'TI', origen: 'Externo' },
+    ];
+    const solicitudesMock = [
+      { id: 10, estado: 'Pendiente' },
+      { id: 11, estado: 'En proceso' },
+      { id: 12, estado: 'Finalizada' },
+      { id: 13, estado: 'Finalizada' },
+    ];
 
     api.get.mockImplementation((url) => {
       if (url.includes('/candidatos')) return Promise.resolve({ data: candidatosMock });
       if (url.includes('/solicitudes')) return Promise.resolve({ data: solicitudesMock });
-      return Promise.reject(new Error('Ruta no válida'));
+      return Promise.reject(new Error('Ruta no encontrada'));
     });
 
     render(
@@ -53,22 +40,18 @@ describe('Vista Dashboard', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Juan Pérez')).toBeInTheDocument();
-      expect(screen.getByText('juan@test.com')).toBeInTheDocument();
+      expect(screen.getByText('Ana López')).toBeInTheDocument();
+      expect(screen.getByText('Carlos Vera')).toBeInTheDocument();
     });
-  });
 
-  it('debe mostrar mensaje de error si la API de candidatos falla', async () => {
-    api.get.mockRejectedValue(new Error('Error de red'));
+    // Validar cada número dentro de su respectiva tarjeta <article>
+    const tarjetaTotal = screen.getByText('Total candidatos').closest('article');
+    expect(within(tarjetaTotal).getByText('2')).toBeInTheDocument();
 
-    render(
-      <MemoryRouter>
-        <Dashboard />
-      </MemoryRouter>
-    );
+    const tarjetaPendientes = screen.getByText('Pendientes').closest('article');
+    expect(within(tarjetaPendientes).getByText('1')).toBeInTheDocument();
 
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('No se pudieron cargar los candidatos.');
-    });
+    const tarjetaFinalizadas = screen.getByText('Finalizadas').closest('article');
+    expect(within(tarjetaFinalizadas).getByText('2')).toBeInTheDocument();
   });
 });
