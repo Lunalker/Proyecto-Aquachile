@@ -1,120 +1,62 @@
 import { useState } from 'react';
-import axios from 'axios';
+import { Link } from 'react-router-dom';
+import api from '../services/api';
+import { validarCandidato } from '../utils/validarCandidato';
+import Icono from '../components/Icono';
 
-function FormularioCandidato() {
-    // Estado para guardar los datos del formulario
-    const [candidato, setCandidato] = useState({
-        nombre: '',
-        correo: '',
-        telefono: '',
-        cargoPostula: '',
-        familiaCargo: '',
-        origen: 'Externo', // Valor por defecto
-        ubicacion: '',
-        unidad: ''
-    });
+const vacio = () => ({ nombre:'', correo:'', telefono:'', cargoPostula:'', familiaCargo:'', origen:'Externo', ubicacion:'', unidad:'' });
+const campos = [
+  { name:'nombre', label:'Nombre completo', required:true, placeholder:'Ej.: Persona de prueba' },
+  { name:'correo', label:'Correo electrónico', type:'email', required:true, placeholder:'ejemplo@correo.test' },
+  { name:'telefono', label:'Teléfono', type:'tel', placeholder:'Número ficticio' },
+  { name:'cargoPostula', label:'Cargo al que postula', required:true, placeholder:'Ej.: Analista de procesos' },
+  { name:'familiaCargo', label:'Familia de cargo', placeholder:'Ej.: Profesional A' },
+  { name:'ubicacion', label:'Ubicación', placeholder:'Ej.: Oficina central' },
+  { name:'unidad', label:'Unidad', placeholder:'Ej.: Industrial' },
+];
 
-    const [mensaje, setMensaje] = useState(''); // Para mostrar alertas de éxito o error
+export default function FormularioCandidato() {
+  const [candidato, setCandidato] = useState(vacio);
+  const [mensaje, setMensaje] = useState('');
+  const [guardando, setGuardando] = useState(false);
+  const [errores, setErrores] = useState({});
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setCandidato(prev => ({ ...prev, [name]: value }));
+    setErrores(prev => ({ ...prev, [name]: undefined }));
+    setMensaje('');
+  };
 
-    // Función para actualizar el estado cuando el usuario escribe
-    const handleChange = (e) => {
-        setCandidato({ ...candidato, [e.target.name]: e.target.value });
-    };
+  async function handleSubmit(event) {
+    event.preventDefault();
+    if (guardando) return;
+    setMensaje('');
+    const { datos, errores: erroresActuales, valido } = validarCandidato(candidato);
+    setErrores(erroresActuales);
+    if (!valido) return;
+    setGuardando(true);
+    try {
+      await api.post('/candidatos', datos);
+      setMensaje('¡Candidato registrado correctamente! Puedes ingresar otro registro.');
+      setCandidato(vacio());
+      setErrores({});
+    } catch (error) {
+      setMensaje(error.response?.status === 403 ? 'Tu usuario no tiene permiso para registrar candidatos.' : 'No se pudo guardar el candidato. Revisa los datos y la conexión.');
+    } finally { setGuardando(false); }
+  }
 
-    // Función que se ejecuta al presionar "Guardar"
-    const handleSubmit = async (e) => {
-        e.preventDefault(); // Evita que la página se recargue
-        try {
-            // Enviamos el objeto JSON al backend (Asegúrate de que Spring Boot esté corriendo)
-            await axios.post('http://localhost:8080/api/candidatos', candidato);
-
-            setMensaje('¡Candidato registrado con éxito en la Base de Datos!');
-
-            // Limpiamos el formulario para ingresar otro
-            setCandidato({
-                nombre: '', correo: '', telefono: '', cargoPostula: '',
-                familiaCargo: '', origen: 'Externo', ubicacion: '', unidad: ''
-            });
-        } catch (error) {
-            console.error("Error al guardar:", error);
-            setMensaje('Hubo un error al guardar. ¿Spring Boot está encendido?');
-        }
-    };
-
-    return (
-        <div className="p-6 max-w-4xl mx-auto">
-            <h2 className="text-2xl font-bold mb-6 text-gray-800">Registrar Nuevo Candidato</h2>
-
-            {/* Alerta de mensaje */}
-            {mensaje && (
-                <div className={`mb-4 p-3 rounded font-semibold ${mensaje.includes('éxito') ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
-                    {mensaje}
-                </div>
-            )}
-
-            {/* Formulario con Tailwind CSS */}
-            <form onSubmit={handleSubmit} className="bg-white p-6 rounded-lg shadow-md border grid grid-cols-1 md:grid-cols-2 gap-4">
-
-                <div>
-                    <label className="block text-gray-700 font-medium mb-1">Nombre Completo</label>
-                    <input type="text" name="nombre" value={candidato.nombre} onChange={handleChange} required
-                           className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label className="block text-gray-700 font-medium mb-1">Correo Electrónico</label>
-                    <input type="email" name="correo" value={candidato.correo} onChange={handleChange} required
-                           className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label className="block text-gray-700 font-medium mb-1">Teléfono</label>
-                    <input type="text" name="telefono" value={candidato.telefono} onChange={handleChange}
-                           className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label className="block text-gray-700 font-medium mb-1">Cargo al que postula</label>
-                    <input type="text" name="cargoPostula" value={candidato.cargoPostula} onChange={handleChange} required
-                           className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label className="block text-gray-700 font-medium mb-1">Familia de Cargo</label>
-                    <input type="text" name="familiaCargo" value={candidato.familiaCargo} onChange={handleChange}
-                           className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label className="block text-gray-700 font-medium mb-1">Origen del Candidato</label>
-                    <select name="origen" value={candidato.origen} onChange={handleChange}
-                            className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500 bg-white">
-                        <option value="Externo">Externo</option>
-                        <option value="Interno">Interno</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label className="block text-gray-700 font-medium mb-1">Ubicación</label>
-                    <input type="text" name="ubicacion" value={candidato.ubicacion} onChange={handleChange}
-                           className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" />
-                </div>
-
-                <div>
-                    <label className="block text-gray-700 font-medium mb-1">Unidad</label>
-                    <input type="text" name="unidad" value={candidato.unidad} onChange={handleChange}
-                           className="w-full border border-gray-300 rounded p-2 focus:outline-none focus:border-blue-500" />
-                </div>
-
-                {/* Botón de envío que ocupa las dos columnas en pantallas grandes */}
-                <div className="md:col-span-2 mt-4 flex justify-end">
-                    <button type="submit" className="bg-blue-600 text-white font-bold py-2 px-6 rounded shadow hover:bg-blue-700 transition">
-                        Guardar Candidato
-                    </button>
-                </div>
-            </form>
-        </div>
-    );
+  return <div className="page-container form-shell">
+    <div className="page-heading"><div><p className="eyebrow">GESTIÓN DE CANDIDATOS</p><h1 className="page-title">Registrar candidato</h1><p className="page-description">Completa la información principal para iniciar un proceso de evaluación.</p></div><Link to="/" className="btn btn-secondary"><Icono nombre="flecha" size={15} className="rotate-180"/>Volver al panel</Link></div>
+    {mensaje && <div role="status" className={`alert-box ${mensaje.includes('correctamente') ? 'alert-box-success' : 'alert-box-error'}`}>{mensaje}</div>}
+    <div className="form-helper-box"><strong>Registro de demostración:</strong> utiliza únicamente datos inventados. Los candidatos reales y los resultados reales están fuera del alcance académico.</div>
+    {Object.keys(errores).length > 0 && <p role="alert" className="alert-box alert-box-error">Revisa los campos marcados antes de guardar.</p>}
+    <form onSubmit={handleSubmit} noValidate className="panel form-panel">
+      <div className="form-panel-head"><h2>Información del postulante</h2><p>Los campos marcados con * son obligatorios.</p></div>
+      <div className="form-panel-body"><div className="form-grid">
+        {campos.map(({name,label,type,required,placeholder})=><div className="field" key={name}><label htmlFor={name}>{label}{required ? ' *' : ''}</label><input id={name} type={type||'text'} name={name} value={candidato[name]} placeholder={placeholder || ''} onChange={handleChange} required={Boolean(required)} aria-invalid={Boolean(errores[name])} aria-describedby={errores[name] ? `error-${name}` : undefined} disabled={guardando}/>{errores[name] && <p id={`error-${name}`} className="field-error mt-1 text-sm text-red-700">{errores[name]}</p>}</div>)}
+        <div className="field"><label htmlFor="origen">Origen del candidato</label><select id="origen" name="origen" value={candidato.origen} onChange={handleChange} aria-invalid={Boolean(errores.origen)} aria-describedby={errores.origen ? 'error-origen' : undefined} disabled={guardando}><option value="Externo">Externo</option><option value="Interno">Interno</option></select>{errores.origen && <p id="error-origen" className="field-error mt-1 text-sm text-red-700">{errores.origen}</p>}</div>
+      </div></div>
+      <div className="form-actions"><Link to="/" className="btn btn-secondary">Cancelar</Link><button type="submit" className="btn btn-primary" disabled={guardando}><Icono nombre="check" size={17}/>{guardando ? 'Guardando...' : 'Guardar candidato'}</button></div>
+    </form>
+  </div>;
 }
-
-export default FormularioCandidato;
