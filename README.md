@@ -1,209 +1,184 @@
-# AquaChile — Sistema de Gestión de Evaluaciones Psicolaborales
+# AquaChile — Gestión de Evaluaciones Psicolaborales
 
-**Proyecto académico de Vinculación con el Medio (VcM) | Desarrollo Full Stack II (DSY1104) — Duoc UC**
+**Proyecto de Vinculación con el Medio (VcM) · Desarrollo Full Stack II (DSY1104) · Duoc UC · 2026**
 
-Aplicación web tipo **MVP (Producto Mínimo Viable)** para centralizar el registro de candidatos, la creación y seguimiento de solicitudes de evaluación psicolaboral y el registro de resultados del proceso de reclutamiento y selección.
+AquaChile es un **prototipo académico de aplicación web** que centraliza la gestión de evaluaciones psicolaborales del proceso de reclutamiento y selección. Permite registrar candidatos, crear y consultar solicitudes de evaluación, realizar seguimiento por estados y registrar resultados mediante una interfaz diferenciada por roles.
 
-> **Alcance:** prototipo académico elaborado con datos ficticios o anonimizados. No corresponde a un sistema corporativo oficial de AquaChile ni está preparado para almacenar datos personales reales en producción.
+> **Alcance académico:** se utilizan exclusivamente datos ficticios o anonimizados. Esta aplicación no es un sistema corporativo oficial de AquaChile y no debe emplearse para tratar antecedentes personales reales.
 
-## 1. Problema y objetivo
+## 1. Problemática y objetivo
 
-El proceso de evaluaciones psicolaborales involucra candidatos, cargos, profesionales responsables, solicitudes, estados y resultados. Mantener estos datos en herramientas y registros separados dificulta su seguimiento.
+La información sobre postulantes, cargos, profesionales responsables, solicitudes y resultados puede estar distribuida entre registros y herramientas independientes, lo que dificulta el seguimiento del proceso. Este MVP propone organizar dichos antecedentes en una aplicación centralizada y ofrecer un recorrido claro:
 
-El objetivo del proyecto es **centralizar la información en una sola aplicación**, facilitar la trazabilidad de cada solicitud y mostrar indicadores que apoyen la gestión del proceso. El recorrido principal es:
+**Registro del candidato → Creación de solicitud → Seguimiento → Registro de evaluación → Actualización del estado.**
 
-**Registro de candidato → Creación de solicitud → Seguimiento → Registro de evaluación → Actualización del estado.**
+El propósito es demostrar cómo una interfaz web, una API y una base de datos pueden apoyar la trazabilidad y consulta de un proceso de evaluación psicolaboral.
 
-## 2. Tecnologías
+## 2. Tecnologías y arquitectura
 
 | Capa | Tecnologías |
 | --- | --- |
-| Frontend | React 19, Vite 8, JavaScript, React Router 7, Axios y Tailwind CSS 4 |
-| Backend | Java 21, Spring Boot 4.1.1, Spring MVC, Spring Data JPA y Spring Security |
-| Base de datos | MySQL 8, ejecutado con Docker Compose |
-| Pruebas frontend | Vitest 5, React Testing Library, jest-dom, user-event y jsdom |
+| Frontend | React 19, Vite 8, JavaScript, React Router 7 y Axios |
+| Interfaz | Tailwind CSS 4 y CSS |
+| Backend | Java 21, Spring Boot 4.1.1, Spring Security y Spring Data JPA |
+| Base de datos | MySQL 8 con Docker Compose |
+| Pruebas de frontend | Vitest 5, React Testing Library, jest-dom, user-event y jsdom |
 | Control de versiones | Git y GitHub |
 
-La solución sigue una **arquitectura monolítica** en el backend: React se comunica mediante HTTP con una API REST de Spring Boot, que utiliza JPA para acceder a MySQL.
+**Arquitectura:** React → API REST de Spring Boot (backend monolítico) → MySQL. La autenticación emplea sesiones HTTP; las operaciones de modificación utilizan protección CSRF.
 
-## 3. Funcionalidades del MVP
+## 3. Funcionalidades implementadas
 
-| Módulo | Funcionalidades implementadas |
+| Módulo | Descripción |
 | --- | --- |
-| Autenticación | Inicio y cierre de sesión, comprobación de sesión y acceso condicionado por rol. |
-| Candidatos | Registro, listado, consulta y edición de los antecedentes principales. |
-| Solicitudes | Creación de solicitudes vinculadas a un candidato; cargo, familia, responsable y observaciones. |
-| Seguimiento | Listado de solicitudes, búsqueda por texto y filtros por estado y fecha. |
+| Autenticación | Inicio y cierre de sesión, comprobación de la sesión activa y protección de rutas según el rol. |
+| Candidatos | Registro, listado, consulta y edición de antecedentes; validaciones de formularios. |
+| Solicitudes | Creación de solicitudes asociadas a candidatos, con cargo, familia, profesional responsable y observaciones. |
+| Seguimiento | Listado y filtros por texto, estado y fecha. |
 | Dashboard | Indicadores de candidatos y solicitudes por estado. |
-| Evaluaciones | Registro de resultado/observaciones y actualización del estado de una solicitud. |
-| Interfaz | Navegación con React Router, componentes reutilizables y diseño adaptable a distintas pantallas. |
-| Calidad | Pruebas automatizadas de componentes, formularios, navegación y lógica de validación. |
+| Evaluaciones | Registro de resultados y observaciones, con actualización del estado de la solicitud. |
+| Interfaz | Diseño adaptable, navegación lateral y componentes reutilizables. |
+| Pruebas | Tests de componentes, formularios, navegación y funciones de validación. |
 
-Las operaciones de interfaz se apoyan en la API existente; para demostrar el flujo completo de esta implementación es necesario iniciar el backend y la base de datos.
+Estados de solicitud utilizados: **Pendiente**, **En proceso** y **Finalizada**.
 
 ## 4. Roles y permisos
 
-| Rol | Permisos principales |
+| Rol | Funciones principales |
 | --- | --- |
-| **Analista de Reclutamiento** (`analista`) | Consultar dashboard, registrar y editar candidatos, crear solicitudes y consultar su seguimiento. |
-| **Profesional Evaluador** (`evaluador`) | Consultar solicitudes, registrar evaluaciones y actualizar sus estados. |
+| **Analista de Reclutamiento** (`analista`) | Registrar y editar candidatos; consultar dashboard y solicitudes; crear solicitudes de evaluación. |
+| **Profesional Evaluador** (`evaluador`) | Consultar solicitudes, registrar evaluaciones y actualizar estados. |
 
-Las cuentas son **usuarios de demostración en memoria** administrados por Spring Security. Los candidatos no acceden directamente a la plataforma. Las contraseñas se deben configurar en cada equipo mediante variables de entorno; **no deben publicarse en el repositorio**.
+Los usuarios son cuentas de demostración configuradas en Spring Security. **Las contraseñas deben proporcionarse mediante variables de entorno** y no publicarse en el repositorio. Los candidatos no acceden a la plataforma.
 
-## 5. Estructura del repositorio
+## 5. Organización del repositorio
 
 ```text
 Proyecto-Aquachile/
 ├── frontend-aquachile/
-│   ├── public/                 # Recursos públicos
+│   ├── public/
 │   ├── src/
-│   │   ├── components/         # Componentes reutilizables
-│   │   ├── context/            # Estado de autenticación
-│   │   ├── pages/              # Pantallas y tests de páginas
-│   │   ├── services/           # Cliente HTTP / API
-│   │   ├── utils/              # Validaciones y sus pruebas (versión integrada)
-│   │   ├── App.jsx             # Rutas y navegación
-│   │   └── index.css           # Estilos generales
+│   │   ├── components/        Componentes reutilizables
+│   │   ├── context/           Autenticación de React
+│   │   ├── pages/             Pantallas y pruebas de páginas
+│   │   ├── services/          Comunicación con la API
+│   │   ├── utils/             Validaciones y sus pruebas
+│   │   ├── App.jsx            Navegación y rutas
+│   │   └── index.css          Estilos
 │   ├── package.json
 │   └── vite.config.js
 ├── proyectoAquachile/
 │   ├── src/main/java/com/example/proyectoAquachile/
-│   │   ├── Controller/         # Endpoints REST
-│   │   ├── Model/              # Entidades JPA
-│   │   ├── Repository/         # Acceso a datos
-│   │   └── Security/           # Autenticación y permisos
+│   │   ├── Controller/        Endpoints REST
+│   │   ├── Model/             Entidades JPA
+│   │   ├── Repository/        Persistencia
+│   │   └── Security/          Autenticación y autorización
 │   ├── src/main/resources/application.properties
 │   ├── docker-compose.yml
-│   ├── mvnw / mvnw.cmd
-│   └── pom.xml
+│   ├── pom.xml
+│   └── mvnw.cmd
 ├── Capturas del proyecto/
-│   └── Test/                   # Evidencias de Vitest subidas al repositorio
+│   └── Test/                  Evidencias de Vitest
 └── README.md
 ```
 
 ## 6. Requisitos previos
 
-- **Git** instalado.
-- **Node.js 24.15.0 o superior de la línea 24**, recomendado para las dependencias actuales; alternativamente, Node.js 22.22.2 o superior de la línea 22. Incluye npm.
-- **JDK 21** (`java -version`).
-- **Docker Desktop** con Docker Compose disponible.
-- Editor recomendado: **VS Code** para React e **IntelliJ IDEA** para Spring Boot (ambos proyectos pueden abrirse en VS Code).
+- Git.
+- **JDK 21**.
+- **Node.js 24.15.0 o posterior de la línea 24** (o 22.22.2 o posterior de la línea 22), con npm.
+- Docker Desktop con Docker Compose.
+- Visual Studio Code o IntelliJ IDEA.
 
-Los puertos **3306**, **8080** y **5173** deben estar disponibles.
+Deben estar disponibles los puertos **3306** (MySQL), **8080** (Spring Boot) y **5173** (Vite).
 
-## 7. Descargar el proyecto
+## 7. Instalación y ejecución
 
-En una terminal:
+Los comandos siguientes están orientados a **Windows y PowerShell**. Para ejecutar la solución completa se necesitan MySQL, backend y frontend activos.
 
-```bash
-git clone -b Feat--Avance-ViTest https://github.com/Lunalker/Proyecto-Aquachile.git
+### 7.1 Clonar el proyecto
+
+```powershell
+git clone https://github.com/Lunalker/Proyecto-Aquachile.git
 cd Proyecto-Aquachile
 ```
 
-**Importante:** el comando descarga los cambios que estén publicados en esa rama. Antes de entregar el proyecto, el equipo debe subir también los cambios de la **interfaz profesional integrada**, las validaciones y las correcciones de tests para que otros puedan reproducir la misma versión.
+El repositorio se descarga desde su rama predeterminada, **`main`**.
 
-## 8. Iniciar la base de datos (MySQL)
+### 7.2 Iniciar MySQL
 
-Abrir una terminal en la carpeta del backend:
+Desde la raíz del repositorio:
 
 ```powershell
 cd proyectoAquachile
 docker compose up -d
-```
-
-El archivo `docker-compose.yml` crea el contenedor `aquachile-mysql`, utiliza **MySQL 8** y prepara la base de datos `aquachile_db` en el puerto `3306`.
-
-Para comprobar su estado:
-
-```powershell
 docker compose ps
 ```
 
-Para detener el contenedor:
+El contenedor local utiliza **MySQL 8**, crea la base `aquachile_db` y expone el puerto **3306**. Para detenerlo:
 
 ```powershell
 docker compose down
 ```
 
-> Las credenciales de MySQL del `docker-compose.yml` corresponden exclusivamente a un entorno local de desarrollo. Deben sustituirse y gestionarse de forma segura antes de cualquier despliegue público.
+> Las credenciales incluidas en la configuración Docker son solo para desarrollo local y deben sustituirse antes de cualquier despliegue real.
 
-## 9. Configurar e iniciar el backend
+### 7.3 Configurar el login e iniciar Spring Boot
 
-### Variables de entorno para el login
-
-El backend espera estas dos variables:
-
-- `AQUACHILE_ANALISTA_PASSWORD`: contraseña local de la cuenta `analista`.
-- `AQUACHILE_EVALUADOR_PASSWORD`: contraseña local de la cuenta `evaluador`.
-
-**Opción A — PowerShell (Windows):** desde la carpeta `proyectoAquachile`, ejecutar en la **misma terminal** que se usará para iniciar Spring Boot:
+En la misma terminal PowerShell, dentro de `proyectoAquachile`, definir las contraseñas **locales** para las cuentas de prueba y ejecutar el backend:
 
 ```powershell
-$env:AQUACHILE_ANALISTA_PASSWORD="TU_CLAVE_LOCAL_ANALISTA"
-$env:AQUACHILE_EVALUADOR_PASSWORD="TU_CLAVE_LOCAL_EVALUADOR"
+$env:AQUACHILE_ANALISTA_PASSWORD="CLAVE_LOCAL_DEL_ANALISTA"
+$env:AQUACHILE_EVALUADOR_PASSWORD="CLAVE_LOCAL_DEL_EVALUADOR"
 .\mvnw.cmd spring-boot:run
 ```
 
-Sustituir los textos `TU_CLAVE_LOCAL_...` por las contraseñas elegidas para la demostración. No subir esas claves a GitHub. Las variables asignadas de este modo duran únicamente mientras se mantiene abierta la terminal de PowerShell.
+Sustituir los valores de ejemplo por contraseñas de demostración. También es posible configurarlas en **IntelliJ IDEA → Run → Edit Configurations → Environment variables**, una por variable.
 
-**Opción B — IntelliJ IDEA:** abrir **Run → Edit Configurations → ProyectoAquachileApplication → Environment variables** y agregar ambas variables (una por fila). Guardar la configuración y ejecutar la aplicación.
+**API local:** `http://localhost:8080/api`
 
-La API quedará disponible en:
+La configuración de conexión a MySQL se encuentra en `proyectoAquachile/src/main/resources/application.properties`. El repositorio actual contiene además valores de demostración en ese archivo: **no deben utilizarse como credenciales reales ni mantenerse en una publicación de producción**. Se recomienda eliminarlos del código y cambiar las claves expuestas antes de un despliegue.
 
-```text
-http://localhost:8080/api
-```
+### 7.4 Iniciar React
 
-El proyecto utiliza `application.properties` para la conexión local a MySQL. Si el puerto o las credenciales de la base de datos cambian, actualizar esta configuración de manera segura.
-
-**Seguridad:** antes de publicar la versión final, eliminar cualquier valor de contraseña de demostración que aún exista en `application.properties`, rotar las claves expuestas y conservar solo la configuración por entorno.
-
-## 10. Instalar e iniciar el frontend
-
-En **otra terminal**, desde la raíz del repositorio:
+Abrir otra terminal desde la raíz del repositorio:
 
 ```powershell
 cd frontend-aquachile
 npm ci
-npm run dev
+npm run dev -- --port 5173 --strictPort
 ```
 
-Abrir en el navegador:
+**Aplicación web:** `http://localhost:5173`
 
-```text
-http://localhost:5173
-```
+Se utiliza el puerto 5173 porque es el origen autorizado en la configuración CORS del backend.
 
-La configuración del cliente HTTP apunta a `http://localhost:8080/api`, utiliza cookies de sesión y envía el token CSRF en las operaciones que modifican información. El backend autoriza el origen `http://localhost:5173`; si Vite selecciona otro puerto, debe ajustarse la configuración para mantener la comunicación.
+### 7.5 Verificar la compilación
 
-### Comprobar compilación de producción
+En `frontend-aquachile`:
 
 ```powershell
 npm run build
 ```
 
-El comando genera los archivos estáticos en `frontend-aquachile/dist/` y permite comprobar que el frontend compila. **Una compilación exitosa no reemplaza las pruebas funcionales ni la verificación del backend.**
+El resultado se genera en `dist/`. Compilar correctamente no sustituye las pruebas funcionales de la aplicación.
 
-## 11. Probar el sistema manualmente
+## 8. Recorrido de demostración
 
-Usar únicamente datos ficticios. Recorrido recomendado:
+Con React, Spring Boot y MySQL ejecutándose, el flujo recomendado para la demostración es:
 
-1. Iniciar sesión como **Analista** y comprobar que se muestre el dashboard.
-2. Registrar un candidato ficticio y verificar que aparezca en el listado.
-3. Abrir su ficha, editar un dato y guardar los cambios.
-4. Crear una solicitud asociada al candidato, asignando cargo y profesional responsable.
-5. Consultar la lista de solicitudes y probar las búsquedas y filtros.
+1. Iniciar sesión como **Analista**.
+2. Registrar un candidato ficticio y verificar que aparezca en el dashboard.
+3. Consultar y editar sus antecedentes.
+4. Crear una solicitud asociada al candidato y registrar su responsable.
+5. Revisar el listado de solicitudes y utilizar búsqueda y filtros.
 6. Cerrar sesión e ingresar como **Evaluador**.
-7. Abrir una solicitud, registrar una evaluación ficticia y cambiar su estado.
-8. Volver al listado y verificar que se refleje la actualización.
-9. Comprobar que cada rol solo vea las acciones autorizadas.
-10. Repetir la revisión en resoluciones de escritorio y celular.
+7. Registrar una evaluación ficticia y actualizar el estado de la solicitud.
+8. Comprobar el cambio de estado y las restricciones de acceso entre roles.
 
-Este recorrido requiere **React, Spring Boot y MySQL** funcionando. La ejecución local completa debe verificarse en el equipo que realizará la demostración.
+## 9. Pruebas automatizadas con Vitest
 
-## 12. Pruebas automatizadas con Vitest
-
-Las pruebas están organizadas por pantalla y por lógica de validación. Se utiliza React Testing Library para interactuar con los componentes y **mocks** de la API para aislarlos de Spring Boot y MySQL.
+La rama `main` contiene **23 casos de prueba definidos en 8 archivos**. Las pruebas de componentes simulan respuestas de la API y verifican el comportamiento del frontend sin requerir Spring Boot o MySQL durante su ejecución.
 
 Desde `frontend-aquachile`:
 
@@ -211,81 +186,50 @@ Desde `frontend-aquachile`:
 npm run test:run
 ```
 
-Para ejecutar Vitest en modo observación:
-
-```powershell
-npm run test
-```
-
-Para obtener más detalle de cada caso:
+Opcionalmente:
 
 ```powershell
 npm run test:run -- --reporter=verbose
+npm run test
 ```
 
-### Cobertura de pruebas
-
-El proyecto define `npm run test:coverage`, pero este comando necesita tener instalada una versión compatible de `@vitest/coverage-v8`. Instalarla y registrar el resultado **solo si el equipo decide presentar cobertura**; la rúbrica no exige un porcentaje específico.
-
-### Casos cubiertos
-
-| Archivo | Comportamientos verificados |
+| Archivo | Funcionalidad verificada |
 | --- | --- |
-| `Login.test.jsx` | Formulario, estado de carga, acceso por rol y credenciales incorrectas. |
-| `Dashboard.test.jsx` | Carga de candidatos e indicadores de solicitudes. |
-| `FormularioCandidato.test.jsx` | Campos, guardado, errores de permisos y bloqueo durante el envío. |
-| `CandidatoDetalle.test.jsx` | Consulta, edición y candidato inexistente. |
-| `NuevaSolicitud.test.jsx` | Registro de solicitud vinculada a un candidato. |
-| `ListadoSolicitudes.test.jsx` | Listado, búsqueda, filtro por estado y acción del Evaluador. |
-| `GestionarEvaluacion.test.jsx` | Registro de evaluación, actualización del estado y acceso denegado. |
-| `validarCandidato.test.js` | Reglas de validación de candidatos (versión integrada). |
+| `Login.test.jsx` | Formulario, estado de carga, redirección según el rol y credenciales inválidas. |
+| `Dashboard.test.jsx` | Presentación de candidatos y cálculo de indicadores. |
+| `FormularioCandidato.test.jsx` | Campos, envío, errores de permisos y bloqueo durante el guardado. |
+| `CandidatoDetalle.test.jsx` | Consulta, edición y manejo de candidato inexistente. |
+| `NuevaSolicitud.test.jsx` | Creación de una solicitud asociada a candidato. |
+| `ListadoSolicitudes.test.jsx` | Búsqueda, filtros y acciones según el rol. |
+| `GestionarEvaluacion.test.jsx` | Registro, cambio de estado y errores por falta de permisos. |
+| `validarCandidato.test.js` | Normalización y validación de datos de candidatos. |
 
-Las **capturas incorporadas al repositorio** se encuentran en [Capturas del proyecto/Test](./Capturas%20del%20proyecto/Test/). Para la entrega, guardar además una evidencia reciente de la ejecución de `npm run test:run` después de integrar los cambios, indicando casos, resultados y una breve justificación de los escenarios probados.
+**Evidencias:**
 
-> Estas pruebas verifican principalmente lógica y comportamiento del frontend con servicios simulados. No sustituyen una prueba de integración real contra Spring Boot y MySQL.
+- [Ejecución conjunta de los tests](./Capturas%20del%20proyecto/Test/Todos%20los%20Test%20.png)
+- [Capturas por módulo](./Capturas%20del%20proyecto/Test/)
 
-## 13. Estado actual y trabajo pendiente
+Las pruebas automatizadas cubren principalmente el frontend con servicios simulados. La integración real entre frontend, API y base de datos se evalúa por separado mediante el recorrido manual.
 
-**Implementado en el código del MVP:** componentes y rutas React, formularios, búsqueda y filtros, dashboard, autenticación por roles, endpoints REST, entidades JPA, configuración de MySQL y pruebas Vitest. La versión local integrada incorpora además la interfaz profesional y validaciones reutilizables.
+## 10. Alcance académico y continuación del MVP
 
-**Pendiente de verificar o completar para el MVP final:**
+La **Evaluación Parcial 2** se centra en React, componentes, props, arreglos y `.map()`, estado y eventos, navegación, formularios con validación, responsive y pruebas Vitest. El repositorio también incorpora una API monolítica y persistencia local como avance hacia la etapa final.
 
-- Comprobar y documentar el flujo completo con frontend, backend y MySQL ejecutándose juntos.
-- Incorporar una **vista específica de detalle de solicitud** con todos sus antecedentes, de acuerdo con el anexo de requerimientos.
-- Mejorar la gestión de evaluaciones para evitar registros duplicados y operaciones parcialmente guardadas.
-- Verificar la consulta y registro de la **fecha de evaluación**; actualmente la entidad del backend la establece automáticamente al crear el registro.
-- Verificar el diseño responsive en distintos dispositivos y corregir problemas de usabilidad.
-- Completar la documentación de integración, las evidencias y el despliegue gratuito demostrable para la etapa final.
+La continuación del MVP contempla fortalecer la consulta del detalle de cada solicitud, la prevención de evaluaciones duplicadas, las pruebas integradas entre las tres capas y el despliegue demostrable mediante herramientas gratuitas. Las integraciones empresariales con Microsoft 365, Power Automate o IA no forman parte del alcance obligatorio.
 
-El proyecto no incluye integraciones corporativas con Microsoft 365, Power Automate, Copilot ni automatizaciones mediante inteligencia artificial, porque están fuera del alcance obligatorio del MVP académico.
+## 11. Documentación del proyecto
 
-## 14. Documentos y evidencias de entrega
+- **Código e historial de desarrollo:** [Repositorio Proyecto-Aquachile](https://github.com/Lunalker/Proyecto-Aquachile).
+- **Instrucciones de instalación y ejecución:** este README.
+- **Evidencias de Vitest:** [Capturas del proyecto/Test](./Capturas%20del%20proyecto/Test/).
 
-Para la **Evaluación Parcial 2**, se consideran los siguientes entregables:
-
-| Entregable | Ubicación o acción |
-| --- | --- |
-| Código fuente e historial del equipo | Repositorio GitHub actualizado, en la rama de entrega acordada. |
-| Instrucciones de ejecución | Este `README.md` en la raíz del repositorio. |
-| ERS actualizado | Documento **ERS AquaChile — Evaluación Parcial 2**, entregado por separado en AVA; adjuntar también al repositorio si el equipo lo acuerda. |
-| Evidencia Vitest | Capturas y descripción breve de los casos, ejecución, resultados y justificación. |
-| Demostración | Ejecución del flujo y explicación individual del código y de las pruebas. |
-
-La evaluación parcial se centra en el **frontend y las pruebas unitarias**. La integración efectiva con backend y base de datos es parte de la etapa posterior del MVP, aunque el equipo ya tiene implementados esos componentes.
-
-## 15. Equipo de desarrollo
+## 12. Equipo de desarrollo
 
 | Integrante | Participación |
 | --- | --- |
-| Víctor Huenchucheo | Desarrollo frontend e integración de la interfaz *(confirmar distribución definitiva)*. |
-| Deiner Quero | Desarrollo backend *(confirmar distribución definitiva)*. |
+| **Víctor Huenchucheo** | Desarrollo frontend, diseño e integración de la interfaz y funcionalidades. |
+| **Deiner Quero** | Desarrollo y mantenimiento de las pruebas automatizadas con Vitest. |
 
-**Responsable de Vitest y documentación:** completar con el nombre y las responsabilidades definitivas acordadas por el equipo antes de la entrega.
+---
 
-## 16. Repositorio y consideraciones finales
-
-**Repositorio:** https://github.com/Lunalker/Proyecto-Aquachile
-
-Este proyecto se ha desarrollado con fines académicos y de Vinculación con el Medio. Su finalidad es demostrar una solución técnicamente viable para centralizar información del proceso de evaluaciones psicolaborales, manteniendo una arquitectura comprensible, pruebas verificables y un flujo de trabajo trazable.
-
-**No utilizar datos personales reales ni publicar contraseñas, archivos `.env` o configuraciones sensibles.**
+*Proyecto académico de Vinculación con el Medio — Desarrollo Full Stack II, Duoc UC (2026). La solución demuestra un flujo digital para la gestión de evaluaciones psicolaborales mediante tecnologías web y datos de prueba.*
