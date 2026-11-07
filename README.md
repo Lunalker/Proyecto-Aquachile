@@ -13,7 +13,7 @@ El **Proyecto AquaChile** es una plataforma web desarrollada para la administrac
 | **Cliente HTTP** | Axios |
 | **Testing** | Vitest |
 | **Estilos y Formato** | CSS3, ESLint |
-| **Backend** | Java / Spring Boot |
+| **Backend** | Java / Spring Boot/ Docker |
 | **Control de Versiones** | Git / GitHub |
 
 ---
