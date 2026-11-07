@@ -123,4 +123,4 @@ A continuación se muestran algunas de las pantallas e interfaces del sistema:
 ## 👥 Autores e Integrantes
 
 - **Desarrollador / Victor Huenchucheo** - *Rol / Frontend*
-- **Desarrollador / Deiner Quero 2** - *Rol / Backend*
+- **Desarrollador / Deiner Quero ** - *Rol / Backend*
