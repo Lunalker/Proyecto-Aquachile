@@ -10,6 +10,7 @@ import CandidatoDetalle from './pages/CandidatoDetalle';
 import NuevaSolicitud from './pages/NuevaSolicitud';
 import ListadoSolicitudes from './pages/ListadoSolicitudes';
 import GestionarEvaluacion from './pages/GestionarEvaluacion';
+import DocumentosCandidato from './pages/DocumentosCandidato';
 
 function Logo({ oscuro = false }) {
   return <div className={`brand ${oscuro ? 'brand-dark' : ''}`}>
@@ -25,6 +26,7 @@ function nombreSeccion(ruta) {
   if (ruta.startsWith('/candidatos/')) return 'Ficha de candidato';
   if (ruta.startsWith('/nueva-solicitud/')) return 'Nueva solicitud';
   if (ruta.startsWith('/evaluar/')) return 'Gestión de evaluación';
+  if (ruta.startsWith('/documentos/')) return 'Documentos del candidato';
   return 'Panel de gestión';
 }
 
@@ -119,6 +121,7 @@ function AppRutas() {
           <Route path="/nueva-solicitud/:idCandidato" element={<NuevaSolicitud/>}/>
         </Route>
         <Route path="/solicitudes" element={<ListadoSolicitudes/>}/>
+        <Route path="/documentos/:idCandidato" element={<DocumentosCandidato/>}/>
         <Route element={<RutaProtegida roles={['EVALUADOR']} />}>
           <Route path="/evaluar/:idSolicitud" element={<GestionarEvaluacion/>}/>
         </Route>

@@ -57,6 +57,10 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/auth/csrf", "/api/auth/login").permitAll()
                 .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
+                // CV: lectura para Analista/Evaluador; modificaciones solo Analista.
+                .requestMatchers(HttpMethod.GET, "/api/documentos/candidatos/**").hasAnyRole("ANALISTA", "EVALUADOR")
+                .requestMatchers(HttpMethod.POST, "/api/documentos/candidatos/**").hasRole("ANALISTA")
+                .requestMatchers(HttpMethod.DELETE, "/api/documentos/candidatos/**").hasRole("ANALISTA")
                 .requestMatchers(HttpMethod.GET, "/api/candidatos/**").hasRole("ANALISTA")
                 .requestMatchers("/api/candidatos/**").hasRole("ANALISTA")
                 .requestMatchers(HttpMethod.GET, "/api/solicitudes/**").hasAnyRole("ANALISTA", "EVALUADOR")

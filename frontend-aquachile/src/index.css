@@ -289,3 +289,20 @@ a { text-decoration: none; }
   .workspace-footer span { display: none; }
   .progress-row { grid-template-columns: 77px 1fr 25px; gap: 9px; }
 }
+
+
+/* Módulo de documentación CV */
+.doc-panel { overflow: hidden; margin-bottom: 20px; }
+.doc-current { display: flex; align-items: center; flex-wrap: wrap; gap: 14px; }
+.doc-file-symbol { display: inline-flex; align-items: center; justify-content: center; flex: 0 0 56px; height: 56px; background: #edf6f8; color: #167a92; border-radius: 11px; }
+.doc-file-info { min-width: 180px; flex: 1; overflow-wrap: anywhere; }
+.doc-file-info strong { display: block; color: #25465d; font-size: 13px; margin-bottom: 5px; }
+.doc-file-info small { color: #7890a0; font-size: 11px; }
+.doc-empty strong { display: block; color: #395c71; margin-bottom: 7px; }
+.doc-empty p { color: #8195a3; font-size: 12px; }
+.doc-upload-form { display: flex; align-items: end; gap: 18px; flex-wrap: wrap; }
+.doc-upload-form .field { flex: 1; min-width: min(100%, 260px); }
+.doc-upload-form input[type=file] { padding: 11px; }
+@media (max-width: 580px) {
+  .doc-current .btn, .doc-upload-form .btn { width: 100%; justify-content: center; }
+}

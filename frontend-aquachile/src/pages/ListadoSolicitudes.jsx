@@ -82,7 +82,10 @@ export default function ListadoSolicitudes() {
             <td>{s.profesionalResponsable || 'Sin responsable'}</td>
             <td>{String(s.fechaSolicitud ?? '').slice(0,10) || 'Sin fecha'}</td>
             <td><EstadoBadge estado={s.estado}/></td>
-            <td>{evaluador ? <Link className="btn btn-primary btn-small" to={`/evaluar/${s.id}`}>Gestionar<Icono nombre="flecha" size={14}/></Link> : <span className="table-readonly">Solo consulta</span>}</td>
+            <td><div className="table-actions">
+              {evaluador ? <Link className="btn btn-primary btn-small" to={`/evaluar/${s.id}`}>Gestionar<Icono nombre="flecha" size={14}/></Link> : <span className="table-readonly">Solo consulta</span>}
+              {s.candidato?.id && <Link className="btn btn-secondary btn-small" to={`/documentos/${s.candidato.id}`} state={{nombre:s.candidato.nombre}}>Ver CV</Link>}
+            </div></td>
           </tr>)}
         </tbody></table></div>}
     </section>
