@@ -203,6 +203,8 @@ a { text-decoration: none; }
 .form-helper-box { padding: 16px 20px; border: 1px solid #dce9ef; border-radius: 10px; background: #f2f8fa; color: #557486; font-size: 11px; line-height: 1.65; margin-bottom: 21px; }
 
 /* Acceso */
+.login-form .field input,
+.login-form .field select { padding: 13px 14px; min-height: 48px; font-size: 13px; }
 .login-screen { display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); min-height: 100vh; background: white; }
 .login-brand-panel { position: relative; padding: 42px clamp(40px,5vw,90px); display: flex; flex-direction: column; overflow: hidden; color: white; background: linear-gradient(150deg, #0e3148 6%, #15586d 100%); }
 .login-brand-panel::after { content: ''; position: absolute; width: 580px; height: 580px; border: 100px solid rgba(183,241,245,.06); border-radius: 50%; bottom: -265px; left: -195px; pointer-events: none; }
