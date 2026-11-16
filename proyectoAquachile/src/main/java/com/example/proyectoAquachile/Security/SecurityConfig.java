@@ -31,29 +31,18 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
-    // Cuentas DE PRUEBA: las contraseñas se obtienen del entorno, nunca del repositorio.
-    // Para producción se necesitaría una tabla usuarios, administración y auditoría.
-    @Bean
-    public UserDetailsService usuariosDemo(
-            @Value("${AQUACHILE_ANALISTA_PASSWORD:}") String claveAnalista,
-            @Value("${AQUACHILE_EVALUADOR_PASSWORD:}") String claveEvaluador,
-            PasswordEncoder encoder) {
-        if (claveAnalista.isBlank() || claveEvaluador.isBlank()) {
-            throw new IllegalStateException("Faltan AQUACHILE_ANALISTA_PASSWORD y/o AQUACHILE_EVALUADOR_PASSWORD");
-        }
-        return new InMemoryUserDetailsManager(
-                User.withUsername("analista")
-                        .password(encoder.encode(claveAnalista)).roles("ANALISTA").build(),
-                User.withUsername("evaluador")
-                        .password(encoder.encode(claveEvaluador)).roles("EVALUADOR").build());
-    }
 
     @Bean
     public SecurityFilterChain seguridad(HttpSecurity http, ObjectMapper json) throws Exception {
         http
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.csrfTokenRepository(new HttpSessionCsrfTokenRepository()))
-            .authorizeHttpRequests(auth -> auth
+                .authorizeHttpRequests(auth -> auth
+                .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
+                .requestMatchers("/api/auth/csrf", "/api/auth/login", "/api/auth/registro").permitAll()
+                .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
+                .requestMatchers(HttpMethod.GET, "/api/usuarios/evaluadores").hasRole("ANALISTA")
+    // ... mantén el resto de tus reglas actuales sin cambios ...
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/auth/csrf", "/api/auth/login").permitAll()
                 .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
