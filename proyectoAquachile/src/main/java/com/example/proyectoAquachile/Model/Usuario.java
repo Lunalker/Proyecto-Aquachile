@@ -1,6 +1,7 @@
 package com.example.proyectoAquachile.Model;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "usuarios")
@@ -26,7 +27,13 @@ public class Usuario {
     @Column(nullable = false)
     private String rol;
 
-    private boolean activo = true;
+    private boolean activo = false;
+
+    @Column(name = "codigo_verificacion", length = 6)
+    private String codigoVerificacion;
+
+    @Column(name = "codigo_expiracion")
+    private LocalDateTime codigoExpiracion;
 
     public Usuario() {}
 
@@ -50,4 +57,10 @@ public class Usuario {
 
     public boolean isActivo() { return activo; }
     public void setActivo(boolean activo) { this.activo = activo; }
+
+    public String getCodigoVerificacion() { return codigoVerificacion; }
+    public void setCodigoVerificacion(String codigoVerificacion) { this.codigoVerificacion = codigoVerificacion; }
+
+    public LocalDateTime getCodigoExpiracion() { return codigoExpiracion; }
+    public void setCodigoExpiracion(LocalDateTime codigoExpiracion) { this.codigoExpiracion = codigoExpiracion; }
 }

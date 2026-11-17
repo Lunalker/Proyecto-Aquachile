@@ -35,6 +35,7 @@ public class InicializadorUsuarios implements CommandLineRunner {
             a.setUsername("analista");
             a.setPassword(encoder.encode(claveAnalista));
             a.setRol("ANALISTA");
+            a.setActivo(true);
             repo.save(a);
         }
         if (!repo.existsByUsername("evaluador")) {
@@ -44,6 +45,7 @@ public class InicializadorUsuarios implements CommandLineRunner {
             e.setUsername("evaluador");
             e.setPassword(encoder.encode(claveEvaluador));
             e.setRol("EVALUADOR");
+            e.setActivo(true);
             repo.save(e);
         }
     }
