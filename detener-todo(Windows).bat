@@ -7,6 +7,9 @@ for %%P in (8080 5173 5174) do (
     )
 )
 
+taskkill /FI "WINDOWTITLE eq AquaChile - *" /T /F > nul 2>&1
+if exist "%~dp0.spring.status" del "%~dp0.spring.status" > nul 2>&1
+
 echo Deteniendo contenedor MySQL en Docker...
 pushd "%~dp0proyectoAquachile"
 docker compose stop
