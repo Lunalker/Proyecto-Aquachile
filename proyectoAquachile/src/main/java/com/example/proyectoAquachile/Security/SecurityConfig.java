@@ -38,6 +38,23 @@ public class SecurityConfig {
             .cors(Customizer.withDefaults())
             .csrf(csrf -> csrf.csrfTokenRepository(new HttpSessionCsrfTokenRepository()))
                 .authorizeHttpRequests(auth -> auth
+
+                        // Postulación externa pública (crear candidato y subir su CV)
+                        .requestMatchers(HttpMethod.POST, "/api/candidatos").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/documentos/candidatos/**").permitAll()
+                        // Gestión interna: consulta, edición y eliminación solo para personal autorizado
+                        .requestMatchers(HttpMethod.GET, "/api/documentos/candidatos/**").hasAnyRole("ANALISTA", "EVALUADOR")
+                        .requestMatchers(HttpMethod.DELETE, "/api/documentos/candidatos/**").hasRole("ANALISTA")
+                        .requestMatchers(HttpMethod.GET, "/api/candidatos/**").hasRole("ANALISTA")
+                        .requestMatchers(HttpMethod.PUT, "/api/candidatos/**").hasRole("ANALISTA")
+                        .requestMatchers(HttpMethod.DELETE, "/api/candidatos/**").hasRole("ANALISTA")
+                        .requestMatchers(
+                                "/api/auth/csrf",
+                                "/api/auth/login",
+                                "/api/auth/registro",
+                                "/api/auth/verificar-codigo",
+                                "/api/auth/reenviar-codigo"
+                        ).permitAll()
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/auth/csrf", "/api/auth/login", "/api/auth/registro").permitAll()
                 .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
@@ -92,7 +109,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration cors = new CorsConfiguration();
-        cors.setAllowedOrigins(List.of("http://localhost:5173"));
+        cors.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174"));
         cors.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         cors.setAllowedHeaders(List.of("Content-Type", "X-CSRF-TOKEN", "Accept"));
         cors.setAllowCredentials(true);

@@ -1,4 +1,4 @@
-package com.example.proyectoAquachile.Security;
+package com.example.proyectoAquachile.Service;
 
 import com.example.proyectoAquachile.Model.Usuario;
 import com.example.proyectoAquachile.Repository.UsuarioRepository;

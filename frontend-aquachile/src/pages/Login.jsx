@@ -9,7 +9,7 @@ export default function Login() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [modo, setModo] = useState('login'); // 'login' | 'registro'
+  const [modo, setModo] = useState('login'); // 'login' | 'registro' | 'verificar'
   const [nombre, setNombre] = useState('');
   const [clave, setClave] = useState('');
   const [registro, setRegistro] = useState({
@@ -19,6 +19,8 @@ export default function Login() {
     password: '',
     rol: 'ANALISTA',
   });
+  const [correoVerificar, setCorreoVerificar] = useState('');
+  const [codigo, setCodigo] = useState('');
 
   const [enviando, setEnviando] = useState(false);
   const [error, setError] = useState('');
@@ -53,7 +55,7 @@ export default function Login() {
       navigate(permitido ? desde : (cuenta.rol === 'EVALUADOR' ? '/solicitudes' : '/'), { replace: true });
     } catch (err) {
       setError(err.response?.status === 401
-        ? 'Usuario o contraseña incorrectos.'
+        ? 'Usuario o contraseña incorrectos (o cuenta aún no verificada).'
         : err.response?.status === 403
           ? 'La sesión de seguridad venció. Recarga e inténtalo nuevamente.'
           : 'No fue posible iniciar sesión. Comprueba que Spring Boot esté funcionando.');
@@ -69,14 +71,42 @@ export default function Login() {
     setError('');
     setExito('');
     try {
+      const correoLimpio = registro.correo.trim().toLowerCase();
       await api.post('/auth/registro', {
         ...registro,
         nombreCompleto: registro.nombreCompleto.trim(),
-        correo: registro.correo.trim(),
+        correo: correoLimpio,
         username: registro.username.trim(),
       });
+      setCorreoVerificar(correoLimpio);
       setNombre(registro.username.trim());
+      setCodigo('');
+      setExito(`Enviamos un código de 6 dígitos a ${correoLimpio}.`);
+      setModo('verificar');
+    } catch (err) {
+      setError(
+        err.response?.data?.error ||
+        'No se pudo registrar el usuario. Verifica los datos y la conexión.'
+      );
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function confirmarCodigo(event) {
+    event.preventDefault();
+    if (enviando) return;
+    setEnviando(true);
+    setError('');
+    setExito('');
+    try {
+      const res = await api.post('/auth/verificar-codigo', {
+        correo: correoVerificar,
+        codigo: codigo.trim(),
+      });
+      setNombre(res.data.username || nombre);
       setClave('');
+      setCodigo('');
       setRegistro({
         nombreCompleto: '',
         correo: '',
@@ -84,15 +114,25 @@ export default function Login() {
         password: '',
         rol: 'ANALISTA',
       });
-      setExito('Usuario registrado correctamente. Ya puedes iniciar sesión.');
+      setExito('Correo verificado correctamente. Ya puedes iniciar sesión.');
       setModo('login');
     } catch (err) {
-      setError(
-        err.response?.data?.error ||
-        (err.response?.status === 403
-          ? 'La sesión de seguridad venció. Recarga e inténtalo nuevamente.'
-          : 'No se pudo registrar el usuario. Verifica los datos y la conexión.')
-      );
+      setError(err.response?.data?.error || 'Código inválido o expirado.');
+    } finally {
+      setEnviando(false);
+    }
+  }
+
+  async function reenviarCodigo() {
+    if (enviando) return;
+    setEnviando(true);
+    setError('');
+    setExito('');
+    try {
+      const res = await api.post('/auth/reenviar-codigo', { correo: correoVerificar });
+      setExito(res.data.mensaje || 'Nuevo código enviado.');
+    } catch (err) {
+      setError(err.response?.data?.error || 'No se pudo reenviar el código.');
     } finally {
       setEnviando(false);
     }
@@ -120,7 +160,7 @@ export default function Login() {
 
       <main className="login-form-side">
         <div className="login-form-wrapper">
-          {modo === 'login' ? (
+          {modo === 'login' && (
             <>
               <p className="login-welcome">BIENVENIDO</p>
               <h2>Iniciar sesión</h2>
@@ -179,11 +219,13 @@ export default function Login() {
                 </button>
               </div>
             </>
-          ) : (
+          )}
+
+          {modo === 'registro' && (
             <>
               <p className="login-welcome">NUEVA CUENTA</p>
               <h2>Registro de usuario</h2>
-              <p className="login-form-subtitle">Crea una cuenta de analista o evaluador para ingresar al sistema.</p>
+              <p className="login-form-subtitle">Crea una cuenta de analista o evaluador. Te enviaremos un código a tu correo.</p>
 
               {error && (
                 <div role="alert" className="alert-box alert-box-error">{error}</div>
@@ -221,7 +263,7 @@ export default function Login() {
                     id="reg-correo"
                     name="correo"
                     type="email"
-                    placeholder="camila.soto@aquachile.cl"
+                    placeholder="tu-correo@ejemplo.com"
                     required
                     value={registro.correo}
                     disabled={enviando}
@@ -257,8 +299,8 @@ export default function Login() {
                   />
                 </div>
                 <button type="submit" className="login-submit" disabled={enviando}>
-                  {enviando ? 'Registrando usuario...' : 'Guardar registro'}
-                  <Icono nombre="check" size={17} />
+                  {enviando ? 'Enviando código...' : 'Continuar y enviar código'}
+                  <Icono nombre="flecha" size={17} />
                 </button>
               </form>
 
@@ -271,6 +313,65 @@ export default function Login() {
                 >
                   <Icono nombre="flecha" size={16} className="rotate-180" />
                   Volver a iniciar sesión
+                </button>
+              </div>
+            </>
+          )}
+
+          {modo === 'verificar' && (
+            <>
+              <p className="login-welcome">VERIFICACIÓN DE CORREO</p>
+              <h2>Ingresa tu código</h2>
+              <p className="login-form-subtitle">
+                Escribe el código de 6 dígitos que enviamos a <strong>{correoVerificar}</strong>.
+              </p>
+
+              {error && (
+                <div role="alert" className="alert-box alert-box-error">{error}</div>
+              )}
+              {exito && (
+                <div role="status" className="alert-box alert-box-success">{exito}</div>
+              )}
+
+              <form className="login-form" onSubmit={confirmarCodigo}>
+                <div className="field">
+                  <label htmlFor="codigo-verificacion">Código de 6 dígitos</label>
+                  <input
+                    id="codigo-verificacion"
+                    type="text"
+                    inputMode="numeric"
+                    pattern="[0-9]{6}"
+                    maxLength={6}
+                    placeholder="000000"
+                    required
+                    value={codigo}
+                    disabled={enviando}
+                    onChange={(e) => setCodigo(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    style={{ textAlign: 'center', fontSize: '22px', letterSpacing: '8px', fontWeight: 700 }}
+                  />
+                </div>
+                <button type="submit" className="login-submit" disabled={enviando || codigo.length !== 6}>
+                  {enviando ? 'Verificando...' : 'Verificar cuenta'}
+                  <Icono nombre="check" size={17} />
+                </button>
+              </form>
+
+              <div className="mt-4 flex flex-col gap-2">
+                <button
+                  type="button"
+                  className="btn btn-soft w-full"
+                  disabled={enviando}
+                  onClick={reenviarCodigo}
+                >
+                  Reenviar código
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-secondary w-full"
+                  disabled={enviando}
+                  onClick={() => cambiarModo('registro')}
+                >
+                  Cambiar correo o datos
                 </button>
               </div>
             </>
