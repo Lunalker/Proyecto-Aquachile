@@ -44,4 +44,16 @@ public class DocumentoCandidato {
     public void setFechaCarga(LocalDateTime fechaCarga) { this.fechaCarga = fechaCarga; }
     public byte[] getContenido() { return contenido; }
     public void setContenido(byte[] contenido) { this.contenido = contenido; }
+
+    @Column(name = "analisis_ia", columnDefinition = "TEXT")
+    private String analisisIa;
+
+    // Agrega sus respectivos Getter y Setter (o usa @Data si ya tienes Lombok en pom.xml)
+    public String getAnalisisIa() {
+        return analisisIa;
+    }
+
+    public void setAnalisisIa(String analisisIa) {
+        this.analisisIa = analisisIa;
+    }
 }

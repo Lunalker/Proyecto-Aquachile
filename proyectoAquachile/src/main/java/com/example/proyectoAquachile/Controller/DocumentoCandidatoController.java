@@ -1,9 +1,12 @@
 package com.example.proyectoAquachile.Controller;
 
+import com.example.proyectoAquachile.Dto.AnalisisCvDTO;
 import com.example.proyectoAquachile.Model.Candidato;
 import com.example.proyectoAquachile.Model.DocumentoCandidato;
 import com.example.proyectoAquachile.Repository.CandidatoRepository;
 import com.example.proyectoAquachile.Repository.DocumentoCandidatoRepository;
+import com.example.proyectoAquachile.Service.CvAnalisisService;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -13,6 +16,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.ObjectMapper;
 
 import java.io.ByteArrayInputStream;
 import java.io.IOException;
@@ -30,9 +34,16 @@ import java.util.zip.ZipInputStream;
 @RestController
 @RequestMapping("/api/documentos/candidatos")
 public class DocumentoCandidatoController {
+
     private static final long MAX_BYTES = 5L * 1024L * 1024L;
     private final DocumentoCandidatoRepository documentos;
     private final CandidatoRepository candidatos;
+
+    @Autowired
+    private CvAnalisisService cvAnalisisService;
+
+    @Autowired
+    private ObjectMapper objectMapper;
 
     public DocumentoCandidatoController(DocumentoCandidatoRepository documentos, CandidatoRepository candidatos) {
         this.documentos = documentos;
@@ -40,11 +51,12 @@ public class DocumentoCandidatoController {
     }
 
     public record DocumentoInfo(Long id, Long candidatoId, String nombreArchivo,
-                                String tipoContenido, long tamanoBytes, LocalDateTime fechaCarga) { }
+                                String tipoContenido, long tamanoBytes, LocalDateTime fechaCarga,
+                                String analisisIa) { }
 
     private DocumentoInfo aInfo(DocumentoCandidato doc) {
         return new DocumentoInfo(doc.getId(), doc.getCandidato().getId(), doc.getNombreArchivo(),
-                doc.getTipoContenido(), doc.getTamanoBytes(), doc.getFechaCarga());
+                doc.getTipoContenido(), doc.getTamanoBytes(), doc.getFechaCarga(), doc.getAnalisisIa());
     }
 
     private DocumentoCandidato obtener(Long candidatoId) {
@@ -94,6 +106,7 @@ public class DocumentoCandidatoController {
         documento.setTamanoBytes(contenido.length);
         documento.setContenido(contenido);
         documento.setFechaCarga(LocalDateTime.now());
+        documento.setAnalisisIa(null); // Limpia el análisis previo si se reemplaza el CV
         return aInfo(documentos.save(documento));
     }
 
@@ -102,6 +115,32 @@ public class DocumentoCandidatoController {
     @Transactional
     public void eliminar(@PathVariable Long candidatoId) {
         documentos.delete(obtener(candidatoId));
+    }
+
+    @PostMapping("/{candidatoId}/analizar-ia")
+    @Transactional
+    public ResponseEntity<?> analizarDocumentoConIa(@PathVariable Long candidatoId) {
+        DocumentoCandidato doc = obtener(candidatoId);
+        String cargo = doc.getCandidato().getCargoPostula();
+        String familia = doc.getCandidato().getFamiliaCargo();
+        String contextoCargo = (cargo != null ? cargo : "General")
+                + (familia != null ? " - Área: " + familia : "");
+
+        AnalisisCvDTO resultado = cvAnalisisService.analizarPdf(doc.getContenido(), contextoCargo);
+
+        if (!"application/pdf".equalsIgnoreCase(doc.getTipoContenido())) {
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST,
+                    "El análisis con IA admite únicamente currículums en formato PDF.");
+        }
+
+        try {
+            doc.setAnalisisIa(objectMapper.writeValueAsString(resultado));
+            documentos.save(doc);
+        } catch (Exception e) {
+            return ResponseEntity.internalServerError().body("Error guardando el análisis en la base de datos");
+        }
+
+        return ResponseEntity.ok(resultado);
     }
 
     private static String nombreSeguro(String original) {
@@ -153,4 +192,5 @@ public class DocumentoCandidatoController {
         }
         return false;
     }
+
 }

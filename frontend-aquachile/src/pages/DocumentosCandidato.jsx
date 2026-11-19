@@ -20,14 +20,25 @@ export default function DocumentosCandidato() {
   const [procesando, setProcesando] = useState(false);
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
+  const [analisis, setAnalisis] = useState(null);
+  const [analizando, setAnalizando] = useState(false);
 
   useEffect(() => {
     let activo = true;
     setCargando(true);
     setDocumento(null);
+    setAnalisis(null);
     setError('');
     api.get(url).then(respuesta => {
-      if (activo) setDocumento(respuesta.data);
+      if (!activo) return;
+      setDocumento(respuesta.data);
+      if (respuesta.data?.analisisIa) {
+        try {
+          setAnalisis(JSON.parse(respuesta.data.analisisIa));
+        } catch {
+          setAnalisis(null);
+        }
+      }
     }).catch(err => {
       if (!activo) return;
       if (err.response?.status !== 404) {
@@ -68,6 +79,7 @@ export default function DocumentosCandidato() {
       // Axios gestiona multipart/form-data y el interceptor añade X-CSRF-TOKEN.
       const respuesta = await api.post(url, datos);
       setDocumento(respuesta.data);
+      setAnalisis(null);
       setArchivo(null);
       evento.target.reset();
       setMensaje('CV guardado correctamente en la base de datos.');
@@ -108,11 +120,38 @@ export default function DocumentosCandidato() {
     try {
       await api.delete(url);
       setDocumento(null);
+      setAnalisis(null);
       setArchivo(null);
       setMensaje('El CV se eliminó correctamente.');
     } catch {
       setError('No se pudo eliminar el CV. Revisa la conexión.');
     } finally { setProcesando(false); }
+  }
+
+  async function handleAnalizarCv() {
+    if (!documento || analizando || procesando) return;
+    if (documento.analisisIa && !analisis) {
+      try {
+        setAnalisis(JSON.parse(documento.analisisIa));
+        return;
+      } catch {
+        // Si falla el parseo local, vuelve a solicitarlo al servidor
+      }
+    }
+    setError('');
+    setMensaje('');
+    setAnalizando(true);
+    try {
+      const respuesta = await api.post(`${url}/analizar-ia`);
+      setAnalisis(respuesta.data);
+      setDocumento(prev => prev ? { ...prev, analisisIa: JSON.stringify(respuesta.data) } : prev);
+      setMensaje('Currículum analizado correctamente con IA.');
+    } catch (err) {
+      const detalle = err.response?.data?.message || 'No se pudo analizar el documento con IA. Verifica que sea un PDF válido y que la API Key esté configurada.';
+      setError(detalle);
+    } finally {
+      setAnalizando(false);
+    }
   }
 
   return <div className="page-container form-shell">
@@ -137,19 +176,64 @@ export default function DocumentosCandidato() {
         <p>Formatos admitidos: PDF, DOC o DOCX. Tamaño máximo: 5 MB.</p>
       </div>
       {cargando ? <div className="form-panel-body" role="status">Consultando documentos...</div>
-        : documento ? <div className="form-panel-body doc-current">
-          <div className="doc-file-symbol"><Icono nombre="clipboard" size={29}/></div>
-          <div className="doc-file-info">
-            <strong>{documento.nombreArchivo}</strong>
-            <small>{etiquetaTamano(documento.tamanoBytes)} · Subido el {new Date(documento.fechaCarga).toLocaleDateString('es-CL')}</small>
-          </div>
-          <button type="button" className="btn btn-primary" disabled={procesando} onClick={descargar}>Descargar CV</button>
-          {analista && <button type="button" className="btn btn-secondary" disabled={procesando} onClick={eliminar}>Eliminar CV</button>}
-        </div> : <div className="form-panel-body doc-empty">
-          <strong>Este candidato todavía no tiene un CV adjunto.</strong>
-          <p>{analista ? 'Puedes subir uno desde el formulario inferior.' : 'El Analista de Reclutamiento puede adjuntarlo desde la ficha del candidato.'}</p>
-        </div>}
+          : documento ? <div className="form-panel-body doc-current">
+            <div className="doc-file-symbol"><Icono nombre="clipboard" size={29}/></div>
+            <div className="doc-file-info">
+              <strong>{documento.nombreArchivo}</strong>
+              <small>{etiquetaTamano(documento.tamanoBytes)} · Subido el {new Date(documento.fechaCarga).toLocaleDateString('es-CL')}</small>
+            </div>
+            <button type="button" className="btn btn-primary" disabled={procesando || analizando} onClick={handleAnalizarCv}>
+              {analizando ? 'Analizando CV...' : 'Analizar CV con IA'}
+            </button>
+            <button type="button" className="btn btn-primary" disabled={procesando} onClick={descargar}>Descargar CV</button>
+            {analista && <button type="button" className="btn btn-secondary" disabled={procesando} onClick={eliminar}>Eliminar CV</button>}
+          </div> : <div className="form-panel-body doc-empty">
+            <strong>Este candidato todavía no tiene un CV adjunto.</strong>
+            <p>{analista ? 'Puedes subir uno desde el formulario inferior.' : 'El Analista de Reclutamiento puede adjuntarlo desde la ficha del candidato.'}</p>
+          </div>}
     </section>
+
+    {analisis && (
+        <section className="panel doc-panel" aria-label="Análisis IA del currículum">
+          <div className="form-panel-head">
+            <h2>Análisis IA: {analisis.tituloProfesional || 'Perfil del candidato'}</h2>
+            <p>
+              {analisis.anosExperienciaEstimados !== null && analisis.anosExperienciaEstimados !== undefined
+                  ? `Experiencia estimada: ${analisis.anosExperienciaEstimados} años`
+                  : 'Datos clave extraídos automáticamente del CV'}
+            </p>
+          </div>
+          <div className="form-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+            {analisis.nombreDetectado && (
+                <p><strong>Nombre en CV:</strong> {analisis.nombreDetectado}</p>
+            )}
+
+            <p><strong>Resumen ejecutivo:</strong> {analisis.resumenEjecutivo}</p>
+
+            {analisis.ultimoCargo && (
+                <p><strong>Último cargo:</strong> {analisis.ultimoCargo}</p>
+            )}
+
+            {analisis.habilidadesClave?.length > 0 && (
+                <div>
+                  <strong>Habilidades clave: </strong>
+                  <span>{analisis.habilidadesClave.join(' · ')}</span>
+                </div>
+            )}
+
+            {analisis.certificacionesYLicencias?.length > 0 && (
+                <div>
+                  <strong>Certificaciones y licencias: </strong>
+                  <span>{analisis.certificacionesYLicencias.join(' · ')}</span>
+                </div>
+            )}
+
+            {analisis.observacionesReclutador && (
+                <p><small><strong>Observación IA:</strong> {analisis.observacionesReclutador}</small></p>
+            )}
+          </div>
+        </section>
+    )}
 
     {analista && <section className="panel doc-panel" aria-label="Subir currículum">
       <div className="form-panel-head">
@@ -160,7 +244,7 @@ export default function DocumentosCandidato() {
         <div className="field">
           <label htmlFor="archivo-cv">Seleccionar documento PDF o Word</label>
           <input id="archivo-cv" type="file" accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-            onChange={elegirArchivo} disabled={procesando} />
+                 onChange={elegirArchivo} disabled={procesando} />
           <span className="field-help">{archivo ? `${archivo.name} · ${etiquetaTamano(archivo.size)}` : 'Elige un archivo auténtico de máximo 5 MB.'}</span>
         </div>
         <button type="submit" className="btn btn-primary" disabled={!archivo || procesando}>

@@ -49,4 +49,9 @@ api.interceptors.response.use(
   }
 );
 
+export const analizarDocumentoIa = async (documentoId) => {
+    const response = await api.post(`/documentos/${documentoId}/analizar-ia`);
+    return response.data;
+};
+
 export default api;
