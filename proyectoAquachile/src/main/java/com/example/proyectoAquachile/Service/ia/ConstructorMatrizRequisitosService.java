@@ -4,6 +4,7 @@ import com.example.proyectoAquachile.Dto.AnalisisCvDTO.EvidenciaDTO;
 import com.example.proyectoAquachile.Dto.AnalisisCvDTO.ExperienciaItemDTO;
 import com.example.proyectoAquachile.Dto.AnalisisCvDTO.RequisitoMatrizItemDTO;
 import com.example.proyectoAquachile.Model.RequisitoCargo;
+import com.example.proyectoAquachile.Service.ia.RespuestaIaCrudaDTO.RequisitoIaItemDTO;
 import org.springframework.stereotype.Service;
 
 import java.util.*;
@@ -35,7 +36,7 @@ public class ConstructorMatrizRequisitosService {
 
     public List<RequisitoMatrizItemDTO> construirMatriz(
             List<RequisitoCargo> requisitosAutoritativos,
-            List<RequisitoMatrizItemDTO> resultadosIa,
+            List<RequisitoIaItemDTO> resultadosIa,
             List<ExperienciaItemDTO> experienciasVerificadas,
             Map<Integer, String> paginasAnonimizadas,
             boolean documentoTruncado) {
@@ -51,17 +52,16 @@ public class ConstructorMatrizRequisitosService {
             }
         }
 
-        Map<Long, RequisitoMatrizItemDTO> respuestasUnicasPorId = new HashMap<>();
+        Map<Long, RequisitoIaItemDTO> respuestasUnicasPorId = new HashMap<>();
         Set<Long> idsDuplicados = new HashSet<>();
 
         if (resultadosIa != null) {
-            for (RequisitoMatrizItemDTO item : resultadosIa) {
+            for (RequisitoIaItemDTO item : resultadosIa) {
                 if (item == null || item.requisitoId() == null) {
                     continue;
                 }
                 Long id = item.requisitoId();
                 if (!catalogoPorId.containsKey(id)) {
-                    // ID inexistente en la BD: se descarta sin reasignar a otro criterio
                     continue;
                 }
                 if (respuestasUnicasPorId.containsKey(id)) {
@@ -90,10 +90,9 @@ public class ConstructorMatrizRequisitosService {
                 continue;
             }
 
-            RequisitoMatrizItemDTO respuestaIa = id != null ? respuestasUnicasPorId.get(id) : null;
+            RequisitoIaItemDTO respuestaIa = id != null ? respuestasUnicasPorId.get(id) : null;
 
             if (respuestaIa == null) {
-                // Nunca confundir una omisión del LLM con ausencia real en el currículum
                 matrizFinal.add(new RequisitoMatrizItemDTO(
                         id,
                         req.getNombreRequisito(),
@@ -120,17 +119,21 @@ public class ConstructorMatrizRequisitosService {
 
     private RequisitoMatrizItemDTO evaluarYValidarItem(
             RequisitoCargo req,
-            RequisitoMatrizItemDTO itemIa,
+            RequisitoIaItemDTO itemIa,
             List<ExperienciaItemDTO> experienciasVerificadas,
             Map<Integer, String> paginasAnonimizadas,
             boolean documentoTruncado) {
 
         String estadoPropuesto = normalizarEstado(itemIa.resultadoAnalisis());
         String observacion = limpiarObservacion(itemIa.observacionEvidencia());
-        EvidenciaDTO evidenciaVerificada = verificarEvidenciaRequisito(itemIa.evidencia(), req, paginasAnonimizadas);
-        boolean citaEsValida = "VERIFICADO_EN_DOCUMENTO".equals(evidenciaVerificada.estadoVerificacion());
+        EvidenciaDTO evidenciaVerificada = verificarEvidenciaRequisito(
+                itemIa.evidencia(),
+                req,
+                itemIa.condicionesEvaluadas(),
+                paginasAnonimizadas
+        );
+        boolean citaEsValida = VerificadorEvidenciaService.ESTADO_VERIFICADO.equals(evidenciaVerificada.estadoVerificacion());
 
-        // Si el documento superó límites y quedó incompleto, nunca declarar ausencia definitiva
         if (ESTADO_NO_IDENTIFICADO.equals(estadoPropuesto) && documentoTruncado) {
             return new RequisitoMatrizItemDTO(
                     req.getId(),
@@ -155,7 +158,6 @@ public class ConstructorMatrizRequisitosService {
             );
         }
 
-        // Regla crítica: ENCONTRADO exige evidencia textual verificada en el PDF
         if (ESTADO_ENCONTRADO.equals(estadoPropuesto) && !citaEsValida) {
             return new RequisitoMatrizItemDTO(
                     req.getId(),
@@ -168,14 +170,14 @@ public class ConstructorMatrizRequisitosService {
             );
         }
 
-        // Validación determinística de experiencia mínima en meses cuando el criterio lo exige
         Integer mesesExigidos = req.getExperienciaMinimaMeses();
         if (mesesExigidos != null && mesesExigidos > 0) {
             CalculadoraExperienciaService.ResultadoEvaluacionExperiencia evalExp =
                     calculadoraExperiencia.evaluarCumplimientoMinimo(
                             experienciasVerificadas,
                             req,
-                            mesesExigidos
+                            mesesExigidos,
+                            itemIa.experienciasRelacionadasIndices()
                     );
 
             if (ESTADO_ENCONTRADO.equals(estadoPropuesto) && !evalExp.cumpleMinimoComprobable()) {
@@ -209,14 +211,21 @@ public class ConstructorMatrizRequisitosService {
     private EvidenciaDTO verificarEvidenciaRequisito(
             EvidenciaDTO evidenciaIa,
             RequisitoCargo req,
+            List<String> condicionesEvaluadas,
             Map<Integer, String> paginasAnonimizadas) {
         if (evidenciaIa == null || evidenciaIa.fragmento() == null || evidenciaIa.fragmento().isBlank()) {
             return new EvidenciaDTO(null, "", "REQUISITO_CARGO", "NO_VERIFICABLE_EN_TEXTO");
         }
+        StringBuilder contexto = new StringBuilder();
+        if (req.getNombreRequisito() != null) contexto.append(req.getNombreRequisito()).append(' ');
+        if (req.getDescripcion() != null) contexto.append(req.getDescripcion()).append(' ');
+        if (condicionesEvaluadas != null && !condicionesEvaluadas.isEmpty()) {
+            contexto.append(String.join(" ", condicionesEvaluadas));
+        }
         return verificadorEvidencia.verificarEvidenciaContextual(
                 evidenciaIa,
                 "REQUISITO_CARGO",
-                req.getNombreRequisito(),
+                contexto.toString().trim(),
                 paginasAnonimizadas
         );
     }

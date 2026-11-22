@@ -144,11 +144,9 @@ public class CalculadoraExperienciaService {
                 }
                 return new IntervaloParsed(ini, hoy, true, true, false, null);
             }
-            // Fecha de inicio con mes/año pero sin término explícito ni indicador de vigencia
             return new IntervaloParsed(ini, null, false, false, false, "Falta fecha de término");
         }
 
-        // Revisar si solo vienen años (ej. "2022 - 2023" o "2023 - Actualidad")
         Matcher mAnios = PATRON_SOLO_ANIO.matcher(norm);
         List<Integer> anios = new ArrayList<>();
         while (mAnios.find()) {
@@ -162,7 +160,6 @@ public class CalculadoraExperienciaService {
                 return new IntervaloParsed(YearMonth.of(a1, 1), YearMonth.of(a2, 12), false, false, true,
                         "el año de término (" + a2 + ") es anterior al de inicio (" + a1 + ")");
             }
-            // No inventa meses exactos para rangos expresados solo en años
             return new IntervaloParsed(YearMonth.of(a1, 1), YearMonth.of(a2, 12), false, false, false,
                     "Solo se indican años sin mes de inicio ni término");
         }
@@ -192,7 +189,7 @@ public class CalculadoraExperienciaService {
             if (exp == null) continue;
             String huella = normalizar(exp.cargo() + "|" + exp.empresa() + "|" + exp.periodo());
             if (!huellasDeduplicacion.add(huella)) {
-                continue; // Experiencia repetida ignorada
+                continue;
             }
             IntervaloParsed parsed = parsearPeriodo(exp.periodo());
             if (parsed.exacto() && !parsed.inconsistente()) {
@@ -222,6 +219,14 @@ public class CalculadoraExperienciaService {
             List<ExperienciaItemDTO> experiencias,
             RequisitoCargo requisito,
             int mesesMinimosExigidos) {
+        return evaluarCumplimientoMinimo(experiencias, requisito, mesesMinimosExigidos, null);
+    }
+
+    public ResultadoEvaluacionExperiencia evaluarCumplimientoMinimo(
+            List<ExperienciaItemDTO> experiencias,
+            RequisitoCargo requisito,
+            int mesesMinimosExigidos,
+            List<Integer> experienciasRelacionadasIndices) {
 
         if (experiencias == null || experiencias.isEmpty()) {
             return new ResultadoEvaluacionExperiencia(
@@ -230,7 +235,11 @@ public class CalculadoraExperienciaService {
             );
         }
 
-        List<ExperienciaItemDTO> relevantes = filtrarExperienciasRelevantes(experiencias, requisito);
+        List<ExperienciaItemDTO> relevantes = seleccionarPorIndices(experiencias, experienciasRelacionadasIndices);
+        if (relevantes.isEmpty()) {
+            relevantes = filtrarExperienciasRelevantes(experiencias, requisito);
+        }
+
         if (relevantes.isEmpty()) {
             return new ResultadoEvaluacionExperiencia(
                     false, 0, false, false,
@@ -247,7 +256,7 @@ public class CalculadoraExperienciaService {
         for (ExperienciaItemDTO exp : relevantes) {
             String huella = normalizar(exp.cargo() + "|" + exp.empresa() + "|" + exp.periodo());
             if (!huellas.add(huella)) {
-                continue; // Evita sumar experiencias repetidas
+                continue;
             }
             if (esPracticaProfesional(exp)) {
                 incluyePractica = true;
@@ -295,6 +304,25 @@ public class CalculadoraExperienciaService {
         );
     }
 
+    private List<ExperienciaItemDTO> seleccionarPorIndices(
+            List<ExperienciaItemDTO> experiencias,
+            List<Integer> indices) {
+        if (indices == null || indices.isEmpty()) {
+            return List.of();
+        }
+        List<ExperienciaItemDTO> seleccionadas = new ArrayList<>();
+        Set<Integer> vistos = new HashSet<>();
+        for (Integer idx : indices) {
+            if (idx != null && idx >= 0 && idx < experiencias.size() && vistos.add(idx)) {
+                ExperienciaItemDTO exp = experiencias.get(idx);
+                if (exp != null) {
+                    seleccionadas.add(exp);
+                }
+            }
+        }
+        return seleccionadas;
+    }
+
     private List<ExperienciaItemDTO> filtrarExperienciasRelevantes(
             List<ExperienciaItemDTO> experiencias,
             RequisitoCargo req) {
@@ -304,7 +332,6 @@ public class CalculadoraExperienciaService {
                         (req.getDescripcion() != null ? req.getDescripcion() : "")
         );
 
-        // Si el criterio es genérico de experiencia sin términos técnicos específicos, considerar todas las experiencias
         if (keywordsReq.isEmpty()) {
             return experiencias;
         }
@@ -340,7 +367,6 @@ public class CalculadoraExperienciaService {
 
         for (int i = 1; i < ordenados.size(); i++) {
             IntervaloParsed siguiente = ordenados.get(i);
-            // Si siguiente empieza antes o justo el mes siguiente al término de actual, se fusionan
             if (!siguiente.inicio().isAfter(actual.fin().plusMonths(1))) {
                 YearMonth nuevoFin = siguiente.fin().isAfter(actual.fin()) ? siguiente.fin() : actual.fin();
                 actual = new IntervaloParsed(

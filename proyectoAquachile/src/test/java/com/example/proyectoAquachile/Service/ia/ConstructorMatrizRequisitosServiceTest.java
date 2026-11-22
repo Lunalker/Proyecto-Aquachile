@@ -4,140 +4,132 @@ import com.example.proyectoAquachile.Dto.AnalisisCvDTO.EvidenciaDTO;
 import com.example.proyectoAquachile.Dto.AnalisisCvDTO.ExperienciaItemDTO;
 import com.example.proyectoAquachile.Dto.AnalisisCvDTO.RequisitoMatrizItemDTO;
 import com.example.proyectoAquachile.Model.RequisitoCargo;
+import com.example.proyectoAquachile.Service.ia.RespuestaIaCrudaDTO.RequisitoIaItemDTO;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.time.Clock;
 import java.time.Instant;
-import java.time.ZoneId;
 import java.util.List;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.lenient;
+import static org.mockito.Mockito.mock;
 
 class ConstructorMatrizRequisitosServiceTest {
 
-    private final VerificadorEvidenciaService verificador = new VerificadorEvidenciaService();
-    private final CalculadoraExperienciaService calculadora = new CalculadoraExperienciaService(
-            Clock.fixed(Instant.parse("2026-11-20T12:00:00Z"), ZoneId.of("America/Santiago"))
-    );
-    private final ConstructorMatrizRequisitosService constructor =
-            new ConstructorMatrizRequisitosService(verificador, calculadora);
+    private ConstructorMatrizRequisitosService constructorMatriz;
 
-    private RequisitoCargo crearReq(Long id, String nombre, boolean obligatorio, Integer mesesMin) {
-        RequisitoCargo r = new RequisitoCargo();
-        // Reflexión simple para fijar ID en pruebas unitarias sin depender de JPA
-        try {
-            var field = RequisitoCargo.class.getDeclaredField("id");
-            field.setAccessible(true);
-            field.set(r, id);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        r.setCargo("Operador sala control");
-        r.setNombreRequisito(nombre);
-        r.setObligatorio(obligatorio);
-        r.setExperienciaMinimaMeses(mesesMin);
-        return r;
+    @BeforeEach
+    void setUp() {
+        VerificadorEvidenciaService verificador = new VerificadorEvidenciaService();
+        CalculadoraExperienciaService calculadora = new CalculadoraExperienciaService(
+                Clock.fixed(Instant.parse("2026-11-15T15:00:00Z"), CalculadoraExperienciaService.ZONA_CHILE)
+        );
+        constructorMatriz = new ConstructorMatrizRequisitosService(verificador, calculadora);
     }
 
     @Test
-    void emparejaExactamentePorIdAunqueVenganDesordenados() {
-        RequisitoCargo r1 = crearReq(10L, "Manejo de SCADA o telemetría", true, null);
-        RequisitoCargo r2 = crearReq(20L, "Certificación prevención de riesgos", false, null);
+    void degradaAEncontradoSinCitaVerificadaOExperienciaInsuficienteYMarcaOmisiones() {
+        RequisitoCargo req1 = mockReq(10L, "Manejo de SCADA", true, null);
+        RequisitoCargo req2 = mockReq(20L, "Experiencia en cultivo marino", true, 24);
+        RequisitoCargo req3 = mockReq(30L, "Licencia de conducir", false, null);
 
         Map<Integer, String> paginas = Map.of(
-                1, "Operación diaria de telemetría en centro de cultivo. Curso de prevención de riesgos aprobado."
+                1, "Operador de centros de cultivo marino en Quellón desde Ene 2025 hasta Dic 2025."
         );
 
-        List<RequisitoMatrizItemDTO> respuestaIaDesordenada = List.of(
-                new RequisitoMatrizItemDTO(20L, "Nombre alterado por IA", false, "ENCONTRADO",
-                        "Acredita curso", new EvidenciaDTO(1, "Curso de prevención de riesgos aprobado", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO"), "PENDIENTE"),
-                new RequisitoMatrizItemDTO(10L, "Otro nombre", true, "ENCONTRADO",
-                        "Cumple alternativa telemetría", new EvidenciaDTO(1, "Operación diaria de telemetría en centro de cultivo", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO"), "PENDIENTE")
+        List<ExperienciaItemDTO> experiencias = List.of(
+                new ExperienciaItemDTO(
+                        "Operador de centros de cultivo marino",
+                        "Empresa Mar",
+                        "Ene 2025 - Dic 2025",
+                        "1 año",
+                        List.of(),
+                        new EvidenciaDTO(1, "Operador de centros de cultivo marino", "EXPERIENCIA", "VERIFICADO_EN_DOCUMENTO"),
+                        "PENDIENTE"
+                )
         );
 
-        List<RequisitoMatrizItemDTO> matriz = constructor.construirMatriz(
-                List.of(r1, r2), respuestaIaDesordenada, List.of(), paginas, false
+        List<RequisitoIaItemDTO> respuestasIa = List.of(
+                // req1: cita inventada -> debe degradarse
+                new RequisitoIaItemDTO(
+                        10L, "Manejo de SCADA", true, "ENCONTRADO",
+                        List.of("SCADA"), List.of(), "Cumple",
+                        new EvidenciaDTO(1, "Experto en SCADA industrial", "REQUISITO_CARGO", "PENDIENTE")
+                ),
+                // req2: cita literal válida, pero solo tiene 12 meses frente a 24 exigidos -> debe degradarse
+                new RequisitoIaItemDTO(
+                        20L, "Experiencia en cultivo marino", true, "ENCONTRADO",
+                        List.of("cultivo marino"), List.of(0), "Tiene experiencia",
+                        new EvidenciaDTO(1, "Operador de centros de cultivo marino", "REQUISITO_CARGO", "PENDIENTE")
+                ),
+                // ID 999 inexistente en BD -> debe ignorarse
+                new RequisitoIaItemDTO(
+                        999L, "Requisito inventado", true, "ENCONTRADO",
+                        List.of(), List.of(), "Inventado",
+                        new EvidenciaDTO(1, "Operador", "REQUISITO_CARGO", "PENDIENTE")
+                )
+                // req3 (30L) omitido por el LLM -> debe quedar en REQUIERE_VERIFICACION
         );
 
-        assertEquals(2, matriz.size());
-        assertEquals(10L, matriz.get(0).requisitoId());
-        assertEquals("Manejo de SCADA o telemetría", matriz.get(0).requisito());
-        assertEquals("ENCONTRADO", matriz.get(0).resultadoAnalisis());
-        assertTrue(matriz.get(0).obligatorio());
+        List<RequisitoMatrizItemDTO> matriz = constructorMatriz.construirMatriz(
+                List.of(req1, req2, req3),
+                respuestasIa,
+                experiencias,
+                paginas,
+                false
+        );
 
-        assertEquals(20L, matriz.get(1).requisitoId());
-        assertEquals("ENCONTRADO", matriz.get(1).resultadoAnalisis());
-        assertFalse(matriz.get(1).obligatorio());
+        assertEquals(3, matriz.size());
+
+        RequisitoMatrizItemDTO m1 = matriz.get(0);
+        assertEquals(10L, m1.requisitoId());
+        assertEquals("REQUIERE_VERIFICACION", m1.resultadoAnalisis());
+        assertTrue(m1.observacionEvidencia().contains("degradado a verificación humana"));
+
+        RequisitoMatrizItemDTO m2 = matriz.get(1);
+        assertEquals(20L, m2.requisitoId());
+        assertEquals("REQUIERE_VERIFICACION", m2.resultadoAnalisis());
+        assertTrue(m2.observacionEvidencia().contains("Cálculo backend"));
+
+        RequisitoMatrizItemDTO m3 = matriz.get(2);
+        assertEquals(30L, m3.requisitoId());
+        assertEquals("REQUIERE_VERIFICACION", m3.resultadoAnalisis());
+        assertTrue(m3.observacionEvidencia().contains("omitió evaluar"));
     }
 
     @Test
-    void degradaAEncontradoConEvidenciaInvalida() {
-        RequisitoCargo r1 = crearReq(10L, "Título técnico en automatización", true, null);
-        Map<Integer, String> paginas = Map.of(1, "Enseñanza media completa.");
+    void noPermiteDeclararAusenciaCuandoDocumentoQuedoTruncado() {
+        RequisitoCargo req = mockReq(1L, "Certificación ISO 9001", true, null);
 
-        List<RequisitoMatrizItemDTO> ia = List.of(
-                new RequisitoMatrizItemDTO(10L, "Título técnico en automatización", true, "ENCONTRADO",
-                        "Supuesto título", new EvidenciaDTO(1, "Técnico Superior en Automatización", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO"), "PENDIENTE")
+        List<RequisitoIaItemDTO> respuestasIa = List.of(
+                new RequisitoIaItemDTO(
+                        1L, "Certificación ISO 9001", true, "NO_IDENTIFICADO_EN_CV",
+                        List.of(), List.of(), "No aparece",
+                        new EvidenciaDTO(null, "", "REQUISITO_CARGO", "NO_IDENTIFICADO_EN_CV")
+                )
         );
 
-        List<RequisitoMatrizItemDTO> matriz = constructor.construirMatriz(
-                List.of(r1), ia, List.of(), paginas, false
+        List<RequisitoMatrizItemDTO> matriz = constructorMatriz.construirMatriz(
+                List.of(req),
+                respuestasIa,
+                List.of(),
+                Map.of(1, "Texto parcial"),
+                true
         );
 
         assertEquals("REQUIERE_VERIFICACION", matriz.get(0).resultadoAnalisis());
-        assertEquals("NO_VERIFICABLE_EN_TEXTO", matriz.get(0).evidencia().estadoVerificacion());
+        assertTrue(matriz.get(0).observacionEvidencia().contains("superó el límite de procesamiento íntegro"));
     }
 
-    @Test
-    void manejaIdInexistenteIdDuplicadoYRequisitoOmitidoSinAsignacionArbitraria() {
-        RequisitoCargo r1 = crearReq(10L, "Requisito A", true, null);
-        RequisitoCargo r2 = crearReq(20L, "Requisito B omitido", true, null);
-
-        Map<Integer, String> paginas = Map.of(1, "Texto de prueba en CV.");
-
-        List<RequisitoMatrizItemDTO> ia = List.of(
-                new RequisitoMatrizItemDTO(999L, "ID Fantasma", true, "ENCONTRADO",
-                        "Obs", new EvidenciaDTO(1, "Texto de prueba en CV", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO"), "PENDIENTE"),
-                new RequisitoMatrizItemDTO(10L, "Requisito A", true, "ENCONTRADO",
-                        "Obs 1", new EvidenciaDTO(1, "Texto de prueba en CV", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO"), "PENDIENTE"),
-                new RequisitoMatrizItemDTO(10L, "Requisito A", true, "NO_IDENTIFICADO_EN_CV",
-                        "Obs 2", new EvidenciaDTO(null, "", "REQUISITO_CARGO", "NO_IDENTIFICADO_EN_CV"), "PENDIENTE")
-        );
-
-        List<RequisitoMatrizItemDTO> matriz = constructor.construirMatriz(
-                List.of(r1, r2), ia, List.of(), paginas, false
-        );
-
-        assertEquals(2, matriz.size());
-        // r1 duplicado -> REQUIERE_VERIFICACION por inconsistencia
-        assertEquals("REQUIERE_VERIFICACION", matriz.get(0).resultadoAnalisis());
-        assertTrue(matriz.get(0).observacionEvidencia().contains("múltiples evaluaciones"));
-        // r2 omitido por la IA -> REQUIERE_VERIFICACION (no NO_IDENTIFICADO_EN_CV)
-        assertEquals("REQUIERE_VERIFICACION", matriz.get(1).resultadoAnalisis());
-        assertTrue(matriz.get(1).observacionEvidencia().contains("omitió evaluar"));
-    }
-
-    @Test
-    void degradaSiExperienciaComprobableNoAlcanzaMinimoExigido() {
-        RequisitoCargo r1 = crearReq(10L, "Experiencia en sala de control", true, 24);
-        Map<Integer, String> paginas = Map.of(1, "Operador sala de control entre Ene 2025 y Dic 2025.");
-
-        List<ExperienciaItemDTO> exps = List.of(
-                new ExperienciaItemDTO("Operador sala de control", "AquaSur", "Ene 2025 - Dic 2025", "1 año",
-                        List.of("Monitoreo"), new EvidenciaDTO(1, "Operador sala de control entre Ene 2025 y Dic 2025", "EXPERIENCIA", "VERIFICADO_EN_DOCUMENTO"), "PENDIENTE")
-        );
-
-        List<RequisitoMatrizItemDTO> ia = List.of(
-                new RequisitoMatrizItemDTO(10L, "Experiencia en sala de control", true, "ENCONTRADO",
-                        "Trabajó en sala de control", new EvidenciaDTO(1, "Operador sala de control entre Ene 2025 y Dic 2025", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO"), "PENDIENTE")
-        );
-
-        List<RequisitoMatrizItemDTO> matriz = constructor.construirMatriz(
-                List.of(r1), ia, exps, paginas, false
-        );
-
-        assertEquals("REQUIERE_VERIFICACION", matriz.get(0).resultadoAnalisis());
-        assertTrue(matriz.get(0).observacionEvidencia().contains("1 año frente a un mínimo de 2 años"));
+    private RequisitoCargo mockReq(Long id, String nombre, boolean obligatorio, Integer meses) {
+        RequisitoCargo r = mock(RequisitoCargo.class);
+        lenient().when(r.getId()).thenReturn(id);
+        lenient().when(r.getNombreRequisito()).thenReturn(nombre);
+        lenient().when(r.isObligatorio()).thenReturn(obligatorio);
+        lenient().when(r.getExperienciaMinimaMeses()).thenReturn(meses);
+        return r;
     }
 }

@@ -2,66 +2,28 @@ package com.example.proyectoAquachile.Service.ia;
 
 import com.example.proyectoAquachile.Dto.AnalisisCvDTO;
 import com.example.proyectoAquachile.Dto.AnalisisCvDTO.*;
+import com.example.proyectoAquachile.Service.AnonimizadorCvUtil;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
-import java.util.regex.Pattern;
 
 /**
- * Enmascara información personal identificable (PII) antes de enviar datos al proveedor LLM,
- * preservando información profesional como empresas, cargos e instituciones educativas.
+ * Servicio Spring de anonimización PII antes de enviar datos al proveedor LLM,
+ * delegando las reglas de sanitización en {@link AnonimizadorCvUtil}.
  */
 @Service
 public class AnonimizadorPiiService {
 
-    private static final Pattern PATRON_RUT = Pattern.compile(
-            "\\b\\d{1,2}(?:\\.\\d{3}){2}-[0-9kK]\\b|\\b\\d{7,8}-[0-9kK]\\b"
-    );
-    private static final Pattern PATRON_EMAIL = Pattern.compile(
-            "[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}"
-    );
-    private static final Pattern PATRON_TELEFONO = Pattern.compile(
-            "(?:\\+?56\\s*)?(?:0?9\\s*\\d{4}[\\s-]?\\d{4}|\\(?0?\\d{1,2}\\)?[\\s-]?\\d{6,7})\\b"
-    );
-    private static final Pattern PATRON_DIRECCION = Pattern.compile(
-            "(?i)\\b(?:direcci[oó]n|domicilio|residencia)\\s*[:\\-]?\\s*[^\\n\\r.;|]{5,80}"
-    );
-    private static final Pattern PATRON_CALLE = Pattern.compile(
-            "(?i)\\b(?:av\\.?|avenida|calle|pasaje|pje\\.?|villa|poblaci[oó]n)\\s+[\\p{L}0-9\\s.,#-]{4,55}\\d+"
-    );
-
     public String anonimizarTextoCv(String texto, String nombreCandidato) {
-        if (texto == null || texto.isBlank()) {
-            return "";
-        }
-        String resultado = anonimizarTextoLibre(texto);
-
-        if (nombreCandidato != null && !nombreCandidato.isBlank()) {
-            String completo = nombreCandidato.trim();
-            resultado = resultado.replaceAll("(?i)" + Pattern.quote(completo), "[CANDIDATO_ANONIMIZADO]");
-            for (String parte : completo.split("\\s+")) {
-                if (parte.length() >= 4) {
-                    resultado = resultado.replaceAll("(?i)\\b" + Pattern.quote(parte) + "\\b", "[NOMBRE_OCULTO]");
-                }
-            }
-        }
-        return resultado;
+        return AnonimizadorCvUtil.anonimizarTexto(texto, nombreCandidato);
     }
 
     public String anonimizarObservaciones(String observaciones) {
-        return anonimizarTextoLibre(observaciones);
+        return AnonimizadorCvUtil.anonimizarObservaciones(observaciones);
     }
 
     public String anonimizarTextoLibre(String texto) {
-        if (texto == null || texto.isBlank()) {
-            return "";
-        }
-        String limpio = PATRON_RUT.matcher(texto).replaceAll("[RUT_OCULTO]");
-        limpio = PATRON_EMAIL.matcher(limpio).replaceAll("[EMAIL_OCULTO]");
-        limpio = PATRON_TELEFONO.matcher(limpio).replaceAll("[TELEFONO_OCULTO]");
-        limpio = PATRON_DIRECCION.matcher(limpio).replaceAll("[DIRECCION_OCULTA]");
-        limpio = PATRON_CALLE.matcher(limpio).replaceAll("[DIRECCION_OCULTA]");
-        return limpio;
+        return AnonimizadorCvUtil.anonimizarTexto(texto, null);
     }
 
     public AnalisisCvDTO anonimizarAnalisisDto(AnalisisCvDTO dto) {
@@ -131,7 +93,7 @@ public class AnonimizadorPiiService {
                 )).toList();
 
         return new AnalisisCvDTO(
-                "[CANDIDATO_ANONIMIZADO]",
+                "[CANDIDATO]",
                 anonimizarTextoLibre(dto.tituloProfesional()),
                 anonimizarTextoLibre(dto.resumenProfesionalObjetivo()),
                 formacion,

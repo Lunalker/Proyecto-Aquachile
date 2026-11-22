@@ -36,10 +36,12 @@ public class ConstructorPromptsIaService {
                    - Respeta conectores lógicos: en criterios con alternativas ("A o B"), basta con acreditar una alternativa; en criterios compuestos ("A y B"), deben acreditarse todas las condiciones obligatorias.
                    - Diferencia experiencia laboral demostrada de una habilidad simplemente mencionada o formación académica.
                    - Identifica contradicciones entre secciones o periodos incompletos en "datosFaltantesOAmbiguos".
-                4. ESTADOS DE REQUISITOS (devuelve cada requisito conservando exactamente su "requisitoId" entero):
+                4. ESTADOS Y TRAZABILIDAD DE REQUISITOS (devuelve cada requisito conservando exactamente su "requisitoId" entero):
                    - "ENCONTRADO": Evidencia textual exacta verificable en el CV que respalda el criterio, cumple sus condiciones y acredita la experiencia mínima cuando corresponda.
                    - "REQUIERE_VERIFICACION": Existen indicios relacionados, cumplimiento parcial, fechas ambiguas o experiencia menor a la solicitada.
                    - "NO_IDENTIFICADO_EN_CV": Sin evidencia relacionada en el texto analizado (ausencia de mención no equivale a falta real de competencia).
+                   - En "condicionesEvaluadas", enumera brevemente las subcondiciones o equivalencias técnicas evaluadas para ese criterio.
+                   - En "experienciasRelacionadasIndices", indica los índices enteros base 0 dentro de "experienciasLaborales" de este bloque que aportan experiencia afin al requisito (o [] si no aplica).
                 5. CITAS TEXTUALES EXACTAS: Cada evidencia debe indicar el número entero de página ([PÁGINA N]) y copiar literalmente el fragmento exacto del texto de esa página (sin parafrasear ni unir frases distantes).
                 6. PROHIBICIONES: No asignes puntajes, porcentajes, rankings ni recomendaciones de contratar o rechazar. No infieras edad, género, salud, religión, nacionalidad ni situación familiar.
                 """;

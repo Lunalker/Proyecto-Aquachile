@@ -5,6 +5,7 @@ import com.example.proyectoAquachile.Dto.AnalisisCvDTO.*;
 import com.example.proyectoAquachile.Dto.PreguntasApoyoDTO;
 import com.example.proyectoAquachile.Model.RequisitoCargo;
 import com.example.proyectoAquachile.Service.ia.*;
+import com.example.proyectoAquachile.Service.ia.RespuestaIaCrudaDTO.RequisitoIaItemDTO;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -85,7 +86,7 @@ public class CvAnalisisService {
         boolean procesadoPorBloques = bloques.size() > 1;
         boolean documentoIncompleto = docExtraido.truncado();
 
-        List<AnalisisCvDTO> resultadosParciales = new ArrayList<>();
+        List<RespuestaIaCrudaDTO> resultadosParciales = new ArrayList<>();
         for (int i = 0; i < bloques.size(); i++) {
             Map<Integer, String> bloqueActual = bloques.get(i);
             ConstructorPromptsIaService.PromptPair prompt = constructorPrompts.construirPromptAnalisisCv(
@@ -103,7 +104,7 @@ public class CvAnalisisService {
             resultadosParciales.add(parsearAnalisis(jsonRespuesta));
         }
 
-        AnalisisCvDTO combinado = combinarResultadosParciales(resultadosParciales);
+        RespuestaIaCrudaDTO combinado = combinarResultadosParciales(resultadosParciales);
 
         return consolidarYValidarDeterministico(
                 combinado,
@@ -196,16 +197,16 @@ public class CvAnalisisService {
         }
     }
 
-    private AnalisisCvDTO parsearAnalisis(String jsonTexto) {
+    private RespuestaIaCrudaDTO parsearAnalisis(String jsonTexto) {
         try {
-            return objectMapper.readValue(jsonTexto, AnalisisCvDTO.class);
+            return objectMapper.readValue(jsonTexto, RespuestaIaCrudaDTO.class);
         } catch (Exception e) {
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY,
                     "La respuesta del proveedor de IA no cumplió el esquema estructurado esperado.");
         }
     }
 
-    private AnalisisCvDTO combinarResultadosParciales(List<AnalisisCvDTO> parciales) {
+    private RespuestaIaCrudaDTO combinarResultadosParciales(List<RespuestaIaCrudaDTO> parciales) {
         if (parciales.size() == 1) {
             return parciales.get(0);
         }
@@ -216,10 +217,12 @@ public class CvAnalisisService {
         List<HabilidadItemDTO> habilidades = new ArrayList<>();
         List<CompetenciaItemDTO> competencias = new ArrayList<>();
         List<CertificacionItemDTO> certificaciones = new ArrayList<>();
-        List<RequisitoMatrizItemDTO> matriz = new ArrayList<>();
         List<DatoFaltanteItemDTO> faltantes = new ArrayList<>();
 
-        for (AnalisisCvDTO p : parciales) {
+        Map<Long, RequisitoIaItemDTO> matrizConsolidada = new LinkedHashMap<>();
+        List<RequisitoIaItemDTO> matrizConDuplicadosIntraBloque = new ArrayList<>();
+
+        for (RespuestaIaCrudaDTO p : parciales) {
             if ("NO_IDENTIFICADO_EN_CV".equals(titulo) && p.tituloProfesional() != null && !p.tituloProfesional().isBlank()) {
                 titulo = p.tituloProfesional();
             }
@@ -227,15 +230,39 @@ public class CvAnalisisService {
                 resumen = p.resumenProfesionalObjetivo();
             }
             if (p.formacionAcademica() != null) formacion.addAll(p.formacionAcademica());
-            if (p.experienciasLaborales() != null) experiencias.addAll(p.experienciasLaborales());
+
+            int offsetExperiencia = experiencias.size();
+            int totalExpBloque = p.experienciasLaborales() != null ? p.experienciasLaborales().size() : 0;
+            if (p.experienciasLaborales() != null) {
+                experiencias.addAll(p.experienciasLaborales());
+            }
+
             if (p.habilidadesTecnicas() != null) habilidades.addAll(p.habilidadesTecnicas());
             if (p.competenciasDeclaradas() != null) competencias.addAll(p.competenciasDeclaradas());
             if (p.certificacionesYLicencias() != null) certificaciones.addAll(p.certificacionesYLicencias());
-            if (p.matrizRequisitos() != null) matriz.addAll(p.matrizRequisitos());
             if (p.datosFaltantesOAmbiguos() != null) faltantes.addAll(p.datosFaltantesOAmbiguos());
+
+            if (p.matrizRequisitos() != null) {
+                Set<Long> idsVistosEnBloque = new HashSet<>();
+                for (RequisitoIaItemDTO item : p.matrizRequisitos()) {
+                    if (item == null || item.requisitoId() == null) continue;
+                    RequisitoIaItemDTO ajustado = desplazarIndicesExperiencia(item, offsetExperiencia, totalExpBloque);
+
+                    // Si el LLM duplicó el mismo ID dentro del mismo bloque, conservar ambos para que la matriz lo marque
+                    if (!idsVistosEnBloque.add(item.requisitoId())) {
+                        matrizConDuplicadosIntraBloque.add(ajustado);
+                        continue;
+                    }
+
+                    matrizConsolidada.merge(item.requisitoId(), ajustado, this::fusionarEvaluacionRequisito);
+                }
+            }
         }
 
-        return new AnalisisCvDTO(
+        List<RequisitoIaItemDTO> matrizFinal = new ArrayList<>(matrizConsolidada.values());
+        matrizFinal.addAll(matrizConDuplicadosIntraBloque);
+
+        return new RespuestaIaCrudaDTO(
                 "NO_IDENTIFICADO_EN_CV",
                 titulo,
                 resumen,
@@ -244,13 +271,82 @@ public class CvAnalisisService {
                 habilidades,
                 competencias,
                 certificaciones,
-                matriz,
+                matrizFinal,
                 faltantes
         );
     }
 
+    private RequisitoIaItemDTO desplazarIndicesExperiencia(
+            RequisitoIaItemDTO item,
+            int offset,
+            int totalExpBloque) {
+        if (item.experienciasRelacionadasIndices() == null || item.experienciasRelacionadasIndices().isEmpty()) {
+            return item;
+        }
+        List<Integer> ajustados = new ArrayList<>();
+        for (Integer idx : item.experienciasRelacionadasIndices()) {
+            if (idx != null && idx >= 0 && idx < totalExpBloque) {
+                ajustados.add(idx + offset);
+            }
+        }
+        return new RequisitoIaItemDTO(
+                item.requisitoId(),
+                item.requisito(),
+                item.obligatorio(),
+                item.resultadoAnalisis(),
+                item.condicionesEvaluadas(),
+                ajustados,
+                item.observacionEvidencia(),
+                item.evidencia()
+        );
+    }
+
+    private RequisitoIaItemDTO fusionarEvaluacionRequisito(RequisitoIaItemDTO a, RequisitoIaItemDTO b) {
+        int rankA = prioridadEstado(a.resultadoAnalisis());
+        int rankB = prioridadEstado(b.resultadoAnalisis());
+
+        RequisitoIaItemDTO principal = rankB > rankA ? b : a;
+        RequisitoIaItemDTO secundario = rankB > rankA ? a : b;
+
+        if (rankA == rankB
+                && (principal.evidencia() == null || principal.evidencia().fragmento() == null || principal.evidencia().fragmento().isBlank())
+                && secundario.evidencia() != null && secundario.evidencia().fragmento() != null && !secundario.evidencia().fragmento().isBlank()) {
+            principal = secundario;
+            secundario = (principal == a) ? b : a;
+        }
+
+        Set<String> condiciones = new LinkedHashSet<>();
+        if (a.condicionesEvaluadas() != null) condiciones.addAll(a.condicionesEvaluadas());
+        if (b.condicionesEvaluadas() != null) condiciones.addAll(b.condicionesEvaluadas());
+
+        Set<Integer> indices = new TreeSet<>();
+        if (a.experienciasRelacionadasIndices() != null) indices.addAll(a.experienciasRelacionadasIndices());
+        if (b.experienciasRelacionadasIndices() != null) indices.addAll(b.experienciasRelacionadasIndices());
+
+        return new RequisitoIaItemDTO(
+                principal.requisitoId(),
+                principal.requisito(),
+                principal.obligatorio(),
+                principal.resultadoAnalisis(),
+                new ArrayList<>(condiciones),
+                new ArrayList<>(indices),
+                principal.observacionEvidencia(),
+                principal.evidencia()
+        );
+    }
+
+    private int prioridadEstado(String estado) {
+        if (estado == null) return 0;
+        return switch (estado.trim().toUpperCase(Locale.ROOT)) {
+            case "ENCONTRADO" -> 3;
+            case "REQUIERE_VERIFICACION" -> 2;
+            case "NO_IDENTIFICADO_EN_CV" -> 1;
+            default -> 0;
+        };
+    }
+
     private AnalisisCvDTO consolidarYValidarDeterministico(
-            AnalisisCvDTO crudo,
+            RespuestaIaCrudaDTO crudo,
             String nombreCandidatoInterno,
             List<RequisitoCargo> requisitosReales,
             Map<Integer, String> paginasAnonimizadas,

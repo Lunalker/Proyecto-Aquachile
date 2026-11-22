@@ -1,6 +1,8 @@
 package com.example.proyectoAquachile.Service.ia;
 
 import com.example.proyectoAquachile.Dto.AnalisisCvDTO.EvidenciaDTO;
+import com.example.proyectoAquachile.Service.ia.VerificadorEvidenciaService.ResultadoVerificacionEvidencia;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
@@ -9,91 +11,139 @@ import static org.junit.jupiter.api.Assertions.*;
 
 class VerificadorEvidenciaServiceTest {
 
-    private final VerificadorEvidenciaService verificador = new VerificadorEvidenciaService();
+    private VerificadorEvidenciaService verificador;
 
-    @Test
-    void citaLiteralEncontradaEnPaginaCorrecta() {
-        Map<Integer, String> paginas = Map.of(
-                1, "Operador de Sala de Control en Planta Quellón con monitoreo continuo de sistemas SCADA."
-        );
-        EvidenciaDTO ev = new EvidenciaDTO(1, "monitoreo continuo de sistemas SCADA", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO");
-
-        EvidenciaDTO res = verificador.verificarEvidenciaContextual(ev, "REQUISITO_CARGO", "Sistemas SCADA", paginas);
-
-        assertEquals("VERIFICADO_EN_DOCUMENTO", res.estadoVerificacion());
-        assertEquals(1, res.pagina());
+    @BeforeEach
+    void setUp() {
+        verificador = new VerificadorEvidenciaService();
     }
 
     @Test
-    void citaInexistenteEsRechazada() {
-        Map<Integer, String> paginas = Map.of(1, "Experiencia administrativa en bodega y despacho.");
-        EvidenciaDTO ev = new EvidenciaDTO(1, "Certificación internacional ISO 22000 vigente", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO");
+    void verificaCitaLiteralEnPaginaIndicadaConOffsetsExactos() {
+        Map<Integer, String> paginas = Map.of(
+                1, "Experiencia en supervisión de centros de cultivo y control de parámetros en piscicultura.",
+                2, "Certificación vigente en prevención de riesgos."
+        );
 
-        EvidenciaDTO res = verificador.verificarEvidenciaContextual(ev, "REQUISITO_CARGO", "ISO 22000", paginas);
+        EvidenciaDTO cruda = new EvidenciaDTO(
+                1,
+                "supervisión de centros de cultivo",
+                "EXPERIENCIA",
+                "PENDIENTE"
+        );
 
-        assertEquals("NO_VERIFICABLE_EN_TEXTO", res.estadoVerificacion());
+        ResultadoVerificacionEvidencia res = verificador.verificar(
+                cruda,
+                "EXPERIENCIA",
+                "Experiencia en centros de cultivo",
+                paginas
+        );
+
+        assertTrue(res.verificada());
+        assertEquals(VerificadorEvidenciaService.ESTADO_VERIFICADO, res.evidencia().estadoVerificacion());
+        assertEquals(1, res.evidencia().pagina());
+        assertNotNull(res.inicioCaracter());
+        assertNotNull(res.finCaracter());
+        assertTrue(res.finCaracter() > res.inicioCaracter());
     }
 
     @Test
-    void citaConPalabrasDispersasNoSeAceptaComoVerificada() {
+    void corrigePaginaAutomaticamenteCuandoLaCitaExisteEnUnaSolaPaginaDistinta() {
         Map<Integer, String> paginas = Map.of(
-                1, "Operador en turnos rotativos. Control de inventario semanal. Sistemas eléctricos básicos."
+                1, "Resumen profesional: Ingeniero Acuícola.",
+                2, "Manejo avanzado de tablas dinámicas en Excel para control de producción."
         );
-        EvidenciaDTO ev = new EvidenciaDTO(1, "Operador de control de sistemas", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO");
 
-        EvidenciaDTO res = verificador.verificarEvidenciaContextual(ev, "REQUISITO_CARGO", "Operador control", paginas);
+        EvidenciaDTO cruda = new EvidenciaDTO(
+                1,
+                "tablas dinámicas en Excel",
+                "HABILIDAD_TECNICA",
+                "PENDIENTE"
+        );
 
-        assertEquals("NO_VERIFICABLE_EN_TEXTO", res.estadoVerificacion());
+        ResultadoVerificacionEvidencia res = verificador.verificar(
+                cruda,
+                "HABILIDAD_TECNICA",
+                "Dominio de Excel",
+                paginas
+        );
+
+        assertTrue(res.verificada());
+        assertEquals(2, res.evidencia().pagina());
+        assertEquals(VerificadorEvidenciaService.ESTADO_VERIFICADO, res.evidencia().estadoVerificacion());
     }
 
     @Test
-    void citaEnPaginaIncorrectaSeResuelveSiEsUnicaEnElDocumento() {
+    void rechazaPalabrasSueltasDispersasNoContiguas() {
         Map<Integer, String> paginas = Map.of(
-                1, "Resumen profesional y formación técnica superior.",
-                2, "Licencia de conducir clase B y D al día."
+                1, "Operador de planta en Puerto Montt. Uso básico de computador en oficina."
         );
-        EvidenciaDTO ev = new EvidenciaDTO(1, "Licencia de conducir clase B y D al día", "CERTIFICACION", "VERIFICADO_EN_DOCUMENTO");
 
-        EvidenciaDTO res = verificador.verificarEvidenciaContextual(ev, "CERTIFICACION", "Licencia clase D", paginas);
+        EvidenciaDTO cruda = new EvidenciaDTO(
+                1,
+                "Operador SCADA avanzado",
+                "REQUISITO_CARGO",
+                "PENDIENTE"
+        );
 
-        assertEquals("VERIFICADO_EN_DOCUMENTO", res.estadoVerificacion());
-        assertEquals(2, res.pagina());
+        ResultadoVerificacionEvidencia res = verificador.verificar(
+                cruda,
+                "REQUISITO_CARGO",
+                "Operador SCADA",
+                paginas
+        );
+
+        assertFalse(res.verificada());
+        assertEquals(VerificadorEvidenciaService.ESTADO_NO_VERIFICABLE, res.evidencia().estadoVerificacion());
+        assertEquals("REQUIERE_VERIFICACION", verificador.aplicarReglaDegradacionEstado("ENCONTRADO", res));
     }
 
     @Test
-    void citaDuplicadaEnVariasPaginasConPaginaInvalidaSolicitaRevision() {
+    void marcaAmbiguoCuandoCitaApareceEnMultiplesPaginasYLaIndicadaEsIncorrecta() {
         Map<Integer, String> paginas = Map.of(
-                1, "Manejo avanzado de Excel y reportes operativos.",
-                2, "Manejo avanzado de Excel y reportes operativos."
+                1, "Control de calidad en línea de proceso.",
+                2, "Control de calidad en línea de proceso."
         );
-        EvidenciaDTO ev = new EvidenciaDTO(99, "Manejo avanzado de Excel y reportes operativos", "HABILIDAD_TECNICA", "VERIFICADO_EN_DOCUMENTO");
 
-        EvidenciaDTO res = verificador.verificarEvidenciaContextual(ev, "HABILIDAD_TECNICA", "Excel", paginas);
+        EvidenciaDTO cruda = new EvidenciaDTO(
+                99,
+                "Control de calidad en línea de proceso",
+                "REQUISITO_CARGO",
+                "PENDIENTE"
+        );
 
-        assertEquals("NO_VERIFICABLE_EN_TEXTO", res.estadoVerificacion());
+        ResultadoVerificacionEvidencia res = verificador.verificar(
+                cruda,
+                "REQUISITO_CARGO",
+                "Control de calidad",
+                paginas
+        );
+
+        assertFalse(res.verificada());
+        assertEquals(VerificadorEvidenciaService.ESTADO_AMBIGUO_PAGINAS, res.evidencia().estadoVerificacion());
     }
 
     @Test
-    void citaSinRelacionSemanticaConElAntecedenteNoRespalda() {
+    void detectaCitaLiteralSinCoherenciaContextualConElAntecedente() {
         Map<Integer, String> paginas = Map.of(
-                1, "Participación en taller de cocina saludable y repostería básica."
+                1, "Licencia de conducir clase B vigente desde 2020."
         );
-        EvidenciaDTO ev = new EvidenciaDTO(1, "taller de cocina saludable y repostería básica", "REQUISITO_CARGO", "VERIFICADO_EN_DOCUMENTO");
 
-        EvidenciaDTO res = verificador.verificarEvidenciaContextual(ev, "REQUISITO_CARGO", "Mantenimiento electromecánico industrial", paginas);
-
-        assertEquals("NO_VERIFICABLE_EN_TEXTO", res.estadoVerificacion());
-    }
-
-    @Test
-    void fragmentosConSaltosDeLineaYGuionesPdfSeNormalizan() {
-        Map<Integer, String> paginas = Map.of(
-                1, "Supervisión de procesos de alimenta-\nción automática en centros de cultivo."
+        EvidenciaDTO cruda = new EvidenciaDTO(
+                1,
+                "Licencia de conducir clase B",
+                "REQUISITO_CARGO",
+                "PENDIENTE"
         );
-        EvidenciaDTO ev = new EvidenciaDTO(1, "procesos de alimentación automática en centros de cultivo", "EXPERIENCIA", "VERIFICADO_EN_DOCUMENTO");
 
-        EvidenciaDTO res = verificador.verificarEvidenciaContextual(ev, "EXPERIENCIA", "Alimentación automática", paginas);
+        ResultadoVerificacionEvidencia res = verificador.verificar(
+                cruda,
+                "REQUISITO_CARGO",
+                "Certificación internacional HACCP",
+                paginas
+        );
 
-        assertEquals("VERIFICADO_EN_DOCUMENTO", res.estadoVerificacion());
+        assertFalse(res.verificada());
+        assertEquals(VerificadorEvidenciaService.ESTADO_SIN_CONTEXTO, res.evidencia().estadoVerificacion());
     }
 }
