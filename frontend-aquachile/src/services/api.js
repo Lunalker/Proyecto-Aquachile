@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-// Todas las solicitudes deben pasar por esta instancia (cookie de sesión + CSRF).
+// Todas las solicitudes deben pasar por esta instancia (cookie HttpOnly JWT + CSRF).
 const api = axios.create({
     baseURL: 'http://localhost:8080/api',
     withCredentials: true,
@@ -10,17 +10,31 @@ const api = axios.create({
 let csrfToken = null;
 let csrfPromise = null;
 
+function leerCookieXsrf() {
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 export function invalidarCsrf() {
     csrfToken = null;
 }
 
 export async function asegurarCsrf({ renovar = false } = {}) {
-    if (renovar) csrfToken = null;
-    if (csrfToken) return csrfToken;
+    if (!renovar) {
+        const cookieActual = leerCookieXsrf();
+        if (cookieActual) {
+            csrfToken = cookieActual;
+            return csrfToken;
+        }
+        if (csrfToken) return csrfToken;
+    } else {
+        csrfToken = null;
+    }
+
     if (!csrfPromise) {
         csrfPromise = api.get('/auth/csrf')
             .then((respuesta) => {
-                csrfToken = respuesta.data.token;
+                csrfToken = leerCookieXsrf() || respuesta.data.token;
                 return csrfToken;
             })
             .finally(() => { csrfPromise = null; });
@@ -61,7 +75,47 @@ api.interceptors.response.use(
     }
 );
 
-// --- Servicios del módulo de análisis documental con IA ---
+// --- Servicios de Postulaciones y Documentos por Postulación ---
+
+export const listarPostulaciones = async () => {
+    const respuesta = await api.get('/postulaciones');
+    return respuesta.data;
+};
+
+export const listarPostulacionesCandidato = async (candidatoId) => {
+    const respuesta = await api.get(`/postulaciones/candidato/${candidatoId}`);
+    return respuesta.data;
+};
+
+export const obtenerCvPostulacion = async (postulacionId) => {
+    const respuesta = await api.get(`/postulaciones/${postulacionId}/cv`);
+    return respuesta.data;
+};
+
+export const descargarCvPostulacion = async (postulacionId) => {
+    return api.get(`/postulaciones/${postulacionId}/cv/descargar`, {
+        responseType: 'blob',
+    });
+};
+
+export const obtenerAnalisisPostulacion = async (postulacionId) => {
+    const respuesta = await api.get(`/postulaciones/${postulacionId}/analisis`);
+    return respuesta.status === 204 ? null : respuesta.data;
+};
+
+export const analizarCvPostulacion = async (postulacionId, { forzar = false } = {}) => {
+    const respuesta = await api.post(`/postulaciones/${postulacionId}/analizar-ia`, null, {
+        params: { forzar },
+    });
+    return respuesta.data;
+};
+
+export const guardarValidacionPostulacion = async (postulacionId, payload) => {
+    const respuesta = await api.put(`/postulaciones/${postulacionId}/validar`, payload);
+    return respuesta.data;
+};
+
+// --- Compatibilidad con consultas heredadas por candidato / solicitud ---
 
 export const obtenerAnalisisCv = async (candidatoId) => {
     const respuesta = await api.get(`/documentos/candidatos/${candidatoId}/analisis`);

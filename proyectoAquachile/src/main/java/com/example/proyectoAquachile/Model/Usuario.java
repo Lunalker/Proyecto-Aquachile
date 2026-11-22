@@ -23,7 +23,7 @@ public class Usuario {
     @Column(nullable = false)
     private String password;
 
-    // Valores permitidos: "ANALISTA" o "EVALUADOR"
+    // Valores permitidos internos: "ANALISTA", "EVALUADOR" (o "PENDIENTE" tras registro público sin asignar)
     @Column(nullable = false)
     private String rol;
 
@@ -35,7 +35,14 @@ public class Usuario {
     @Column(name = "codigo_expiracion")
     private LocalDateTime codigoExpiracion;
 
+    @Column(name = "token_version", nullable = false)
+    private Long tokenVersion = 0L;
+
     public Usuario() {}
+
+    public void incrementarTokenVersion() {
+        this.tokenVersion = (this.tokenVersion == null ? 0L : this.tokenVersion) + 1L;
+    }
 
     public Long getId() { return id; }
     public void setId(Long id) { this.id = id; }
@@ -63,4 +70,7 @@ public class Usuario {
 
     public LocalDateTime getCodigoExpiracion() { return codigoExpiracion; }
     public void setCodigoExpiracion(LocalDateTime codigoExpiracion) { this.codigoExpiracion = codigoExpiracion; }
+
+    public Long getTokenVersion() { return tokenVersion == null ? 0L : tokenVersion; }
+    public void setTokenVersion(Long tokenVersion) { this.tokenVersion = tokenVersion == null ? 0L : tokenVersion; }
 }

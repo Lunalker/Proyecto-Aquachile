@@ -3,12 +3,9 @@ package com.example.proyectoAquachile.Model;
 import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
-/**
- * Historial trazable de análisis de CV asistidos por IA y su flujo de revisión humana.
- * Separa la salida automática del modelo de los antecedentes corregidos y validados por el analista.
- */
 @Entity
 @Table(name = "analisis_cv", indexes = {
+        @Index(name = "idx_analisis_cv_postulacion", columnList = "postulacion_id"),
         @Index(name = "idx_analisis_cv_candidato", columnList = "candidato_id"),
         @Index(name = "idx_analisis_cv_estado", columnList = "estado_analisis, estado_revision")
 })
@@ -29,6 +26,13 @@ public class AnalisisCv {
     @JoinColumn(name = "documento_id")
     private DocumentoCandidato documento;
 
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "documento_postulacion_id")
+    private DocumentoPostulacion documentoPostulacion;
+
+    @Column(name = "postulacion_id")
+    private Long postulacionId;
+
     @Column(name = "candidato_id", nullable = false)
     private Long candidatoId;
 
@@ -44,11 +48,9 @@ public class AnalisisCv {
     @Column(name = "fecha_generacion", nullable = false)
     private LocalDateTime fechaGeneracion;
 
-    /** Salida estructurada original generada por la IA (inmutable tras la generación). */
     @Column(name = "resultado_ia_json", nullable = false, columnDefinition = "LONGTEXT")
     private String resultadoIaJson;
 
-    /** Estructura revisada/corregida por el analista humano. */
     @Column(name = "datos_validados_json", columnDefinition = "LONGTEXT")
     private String datosValidadosJson;
 
@@ -73,6 +75,10 @@ public class AnalisisCv {
     public Long getId() { return id; }
     public DocumentoCandidato getDocumento() { return documento; }
     public void setDocumento(DocumentoCandidato documento) { this.documento = documento; }
+    public DocumentoPostulacion getDocumentoPostulacion() { return documentoPostulacion; }
+    public void setDocumentoPostulacion(DocumentoPostulacion documentoPostulacion) { this.documentoPostulacion = documentoPostulacion; }
+    public Long getPostulacionId() { return postulacionId; }
+    public void setPostulacionId(Long postulacionId) { this.postulacionId = postulacionId; }
     public Long getCandidatoId() { return candidatoId; }
     public void setCandidatoId(Long candidatoId) { this.candidatoId = candidatoId; }
     public String getNombreArchivoAnalizado() { return nombreArchivoAnalizado; }

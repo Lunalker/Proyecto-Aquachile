@@ -8,6 +8,13 @@ import java.util.Optional;
 
 public interface AnalisisCvRepository extends JpaRepository<AnalisisCv, Long> {
 
+    Optional<AnalisisCv> findFirstByPostulacionIdAndEstadoAnalisisOrderByFechaGeneracionDesc(
+            Long postulacionId, String estadoAnalisis);
+
+    List<AnalisisCv> findByPostulacionIdAndEstadoAnalisis(Long postulacionId, String estadoAnalisis);
+
+    List<AnalisisCv> findByPostulacionIdOrderByFechaGeneracionDesc(Long postulacionId);
+
     Optional<AnalisisCv> findFirstByCandidatoIdAndEstadoAnalisisOrderByFechaGeneracionDesc(
             Long candidatoId, String estadoAnalisis);
 

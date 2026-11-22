@@ -3,11 +3,17 @@ import { Link, useLocation, useParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import api, {
   analizarCvCandidato,
+  analizarCvPostulacion,
   crearRequisitoCargo,
+  descargarCvPostulacion,
   eliminarRequisitoCargo,
   guardarValidacionAnalisis,
+  guardarValidacionPostulacion,
+  listarPostulacionesCandidato,
   listarRequisitosCargo,
   obtenerAnalisisCv,
+  obtenerAnalisisPostulacion,
+  obtenerCvPostulacion,
 } from '../services/api';
 import Icono from '../components/Icono';
 
@@ -89,8 +95,10 @@ export default function DocumentosCandidato() {
   const { state } = useLocation();
   const { usuario } = useAuth();
   const analista = usuario?.rol === 'ANALISTA';
-  const url = `/documentos/candidatos/${idCandidato}`;
+  const urlLegacy = `/documentos/candidatos/${idCandidato}`;
 
+  const [postulaciones, setPostulaciones] = useState([]);
+  const [postulacionActivaId, setPostulacionActivaId] = useState(state?.postulacionId || null);
   const [documento, setDocumento] = useState(null);
   const [candidatoInfo, setCandidatoInfo] = useState(null);
   const [archivo, setArchivo] = useState(null);
@@ -101,12 +109,10 @@ export default function DocumentosCandidato() {
   const [error, setError] = useState('');
   const [mensaje, setMensaje] = useState('');
 
-  // Estado del análisis estructurado y revisión humana
   const [analisisMeta, setAnalisisMeta] = useState(null);
   const [datosEditables, setDatosEditables] = useState(null);
   const [observacionesAnalista, setObservacionesAnalista] = useState('');
 
-  // Configuración avanzada de requisitos del cargo por parte del analista
   const [requisitosCargo, setRequisitosCargo] = useState([]);
   const [nuevoReqCategoria, setNuevoReqCategoria] = useState('EXPERIENCIA');
   const [nuevoReqNombre, setNuevoReqNombre] = useState('');
@@ -114,6 +120,8 @@ export default function DocumentosCandidato() {
   const [nuevoReqMeses, setNuevoReqMeses] = useState('');
   const [nuevoReqObligatorio, setNuevoReqObligatorio] = useState(true);
   const [guardandoReq, setGuardandoReq] = useState(false);
+
+  const postulacionActual = postulaciones.find(p => p.id === postulacionActivaId) || null;
 
   useEffect(() => {
     let activo = true;
@@ -125,23 +133,68 @@ export default function DocumentosCandidato() {
 
     async function cargarTodo() {
       try {
-        const [docRes, candRes, analisisRes] = await Promise.all([
-          api.get(url).catch(err => (err.response?.status === 404 ? { data: null } : Promise.reject(err))),
+        const [listaPostulaciones, candRes] = await Promise.all([
+          listarPostulacionesCandidato(idCandidato).catch(() => []),
           analista
               ? api.get(`/candidatos/${idCandidato}`).catch(() => ({ data: null }))
               : Promise.resolve({ data: null }),
-          obtenerAnalisisCv(idCandidato).catch(() => null),
         ]);
+
         if (!activo) return;
-        setDocumento(docRes.data);
+        const posts = Array.isArray(listaPostulaciones) ? listaPostulaciones : [];
+        setPostulaciones(posts);
         setCandidatoInfo(candRes.data);
-        if (analisisRes) {
-          aplicarRespuestaAnalisis(analisisRes);
-        }
-        const cargo = candRes.data?.cargoPostula || analisisRes?.cargoPostula;
-        if (cargo) {
-          const reqs = await listarRequisitosCargo(cargo).catch(() => []);
-          if (activo) setRequisitosCargo(reqs);
+
+        const elegida = posts.find(p => p.id === postulacionActivaId) || posts[0] || null;
+        if (elegida) {
+          if (elegida.id !== postulacionActivaId) {
+            setPostulacionActivaId(elegida.id);
+          }
+          const [cvMeta, analisisRes] = await Promise.all([
+            obtenerCvPostulacion(elegida.id).catch(() => null),
+            obtenerAnalisisPostulacion(elegida.id).catch(() => null),
+          ]);
+          if (!activo) return;
+
+          if (cvMeta) {
+            setDocumento({
+              id: cvMeta.id,
+              postulacionId: cvMeta.postulacionId,
+              nombreArchivo: cvMeta.nombreOriginal,
+              tipoContenido: cvMeta.tipoMime,
+              tamanoBytes: cvMeta.tamanoBytes,
+              fechaCarga: cvMeta.fechaCarga,
+              hashSha256: cvMeta.hashSha256,
+              contenedorUuid: cvMeta.contenedorUuid,
+              nombreContenedor: cvMeta.nombreContenedor,
+              analizableIa: cvMeta.analizableIa,
+              motivoNoAnalizable: cvMeta.motivoNoAnalizable,
+            });
+          }
+          if (analisisRes) {
+            aplicarRespuestaAnalisis(analisisRes);
+          }
+          const cargo = elegida.ofertaCargo || candRes.data?.cargoPostula;
+          if (cargo) {
+            const reqs = await listarRequisitosCargo(cargo).catch(() => []);
+            if (activo) setRequisitosCargo(reqs);
+          }
+        } else {
+          // Respaldo para registros heredados sin postulación asociada
+          const [docRes, analisisRes] = await Promise.all([
+            api.get(urlLegacy).catch(err => (err.response?.status === 404 ? { data: null } : Promise.reject(err))),
+            obtenerAnalisisCv(idCandidato).catch(() => null),
+          ]);
+          if (!activo) return;
+          setDocumento(docRes.data);
+          if (analisisRes) {
+            aplicarRespuestaAnalisis(analisisRes);
+          }
+          const cargo = candRes.data?.cargoPostula || analisisRes?.cargoPostula;
+          if (cargo) {
+            const reqs = await listarRequisitosCargo(cargo).catch(() => []);
+            if (activo) setRequisitosCargo(reqs);
+          }
         }
       } catch {
         if (activo) setError('No se pudo consultar la documentación. Comprueba la conexión con Spring Boot.');
@@ -152,7 +205,7 @@ export default function DocumentosCandidato() {
 
     cargarTodo();
     return () => { activo = false; };
-  }, [idCandidato, url, analista]);
+  }, [idCandidato, postulacionActivaId, urlLegacy, analista]);
 
   function aplicarRespuestaAnalisis(resp) {
     setAnalisisMeta(resp);
@@ -188,7 +241,7 @@ export default function DocumentosCandidato() {
     try {
       const datos = new FormData();
       datos.append('archivo', archivo);
-      const respuesta = await api.post(url, datos);
+      const respuesta = await api.post(urlLegacy, datos);
       setDocumento(respuesta.data);
       setAnalisisMeta(null);
       setDatosEditables(null);
@@ -209,7 +262,10 @@ export default function DocumentosCandidato() {
     setError('');
     setProcesando(true);
     try {
-      const respuesta = await api.get(`${url}/descargar`, { responseType: 'blob' });
+      const respuesta = postulacionActual
+          ? await descargarCvPostulacion(postulacionActual.id)
+          : await api.get(`${urlLegacy}/descargar`, { responseType: 'blob' });
+
       const archivoBlob = new Blob([respuesta.data], { type: documento.tipoContenido });
       const enlaceTemporal = URL.createObjectURL(archivoBlob);
       const enlace = document.createElement('a');
@@ -225,13 +281,13 @@ export default function DocumentosCandidato() {
   }
 
   async function eliminar() {
-    if (!analista || !documento || procesando) return;
+    if (!analista || !documento || postulacionActual || procesando) return;
     if (!window.confirm('¿Eliminar el CV adjunto a este candidato? Esta acción invalidará el análisis asociado.')) return;
     setError('');
     setMensaje('');
     setProcesando(true);
     try {
-      await api.delete(url);
+      await api.delete(urlLegacy);
       setDocumento(null);
       setAnalisisMeta(null);
       setDatosEditables(null);
@@ -252,7 +308,9 @@ export default function DocumentosCandidato() {
     setMensaje('');
     setAnalizando(true);
     try {
-      const resp = await analizarCvCandidato(idCandidato, { forzar });
+      const resp = postulacionActual
+          ? await analizarCvPostulacion(postulacionActual.id, { forzar })
+          : await analizarCvCandidato(idCandidato, { forzar });
       aplicarRespuestaAnalisis(resp);
       setMensaje(forzar
           ? 'CV reanalizado con IA. Revisa el semáforo de criterios antes de validar.'
@@ -290,11 +348,14 @@ export default function DocumentosCandidato() {
     setMensaje('');
     setGuardandoValidacion(true);
     try {
-      const resp = await guardarValidacionAnalisis(idCandidato, {
+      const payload = {
         datosRevisados: datosEditables,
         observacionesAnalista,
         confirmarValidacion,
-      });
+      };
+      const resp = postulacionActual
+          ? await guardarValidacionPostulacion(postulacionActual.id, payload)
+          : await guardarValidacionAnalisis(idCandidato, payload);
       aplicarRespuestaAnalisis(resp);
       setMensaje(confirmarValidacion
           ? 'Antecedentes validados correctamente. Ya están disponibles para el evaluador.'
@@ -306,16 +367,17 @@ export default function DocumentosCandidato() {
     }
   }
 
+  const cargoActual = postulacionActual?.ofertaCargo || candidatoInfo?.cargoPostula || analisisMeta?.cargoPostula || '';
+
   async function agregarRequisito(e) {
     e.preventDefault();
-    const cargoActual = candidatoInfo?.cargoPostula || analisisMeta?.cargoPostula;
     if (!analista || !cargoActual || !nuevoReqNombre.trim() || guardandoReq) return;
     setGuardandoReq(true);
     setError('');
     try {
       const creado = await crearRequisitoCargo({
         cargo: cargoActual,
-        familiaCargo: candidatoInfo?.familiaCargo || analisisMeta?.familiaCargo || null,
+        familiaCargo: postulacionActual?.ofertaCategoria || candidatoInfo?.familiaCargo || analisisMeta?.familiaCargo || null,
         categoria: nuevoReqCategoria,
         nombreRequisito: nuevoReqNombre.trim(),
         descripcion: nuevoReqDesc.trim() || null,
@@ -335,14 +397,13 @@ export default function DocumentosCandidato() {
   }
 
   async function cargarPlantillaCargo() {
-    const cargoActual = candidatoInfo?.cargoPostula || analisisMeta?.cargoPostula;
     if (!analista || !cargoActual || guardandoReq) return;
     setGuardandoReq(true);
     setError('');
     try {
       const { data } = await api.post('/requisitos-cargo/plantilla', {
         cargo: cargoActual,
-        familiaCargo: candidatoInfo?.familiaCargo || analisisMeta?.familiaCargo || null,
+        familiaCargo: postulacionActual?.ofertaCategoria || candidatoInfo?.familiaCargo || analisisMeta?.familiaCargo || null,
       });
       setRequisitosCargo(Array.isArray(data) ? data : []);
       setMensaje(`Criterios base cargados para "${cargoActual}". Pulsa "Analizar CV con IA" o "Reanalizar CV".`);
@@ -364,9 +425,7 @@ export default function DocumentosCandidato() {
   }
 
   const esPdfAnalizable = documento && documento.analizableIa !== false;
-  const cargoActual = candidatoInfo?.cargoPostula || analisisMeta?.cargoPostula || '';
 
-  // Cálculo dinámico en tiempo real del semáforo de criterios
   const matriz = datosEditables?.matrizRequisitos || [];
   const totalCriterios = matriz.length;
   const totalEncontrados = matriz.filter(r => r.resultadoAnalisis === 'ENCONTRADO').length;
@@ -380,9 +439,15 @@ export default function DocumentosCandidato() {
     <div className="page-heading">
       <div>
         <p className="eyebrow">DOCUMENTACIÓN Y ANÁLISIS ASISTIDO POR IA</p>
-        <h1 className="page-title">Currículum del candidato #{idCandidato}</h1>
+        <h1 className="page-title">
+          {postulacionActual
+              ? `Currículum de postulación #${postulacionActual.id}`
+              : `Currículum del candidato #${idCandidato}`}
+        </h1>
         <p className="page-description">
-          {state?.nombre || candidatoInfo?.nombre ? `${state?.nombre || candidatoInfo?.nombre} · ` : ''}
+          {state?.nombre || candidatoInfo?.nombre || postulacionActual?.candidatoNombre
+              ? `${state?.nombre || candidatoInfo?.nombre || postulacionActual?.candidatoNombre} · `
+              : ''}
           {cargoActual ? `Cargo: ${cargoActual}` : 'Archivo asociado al registro del postulante.'}
         </p>
       </div>
@@ -390,6 +455,31 @@ export default function DocumentosCandidato() {
         <Icono nombre="flecha" size={15} className="rotate-180"/> Volver
       </Link>
     </div>
+
+    {/* Selector de postulación cuando el candidato postuló a una o más ofertas */}
+    {postulaciones.length > 0 && (
+        <section className="panel doc-panel" aria-label="Postulaciones asociadas">
+          <div className="form-panel-head">
+            <h2>Postulaciones registradas ({postulaciones.length})</h2>
+            <p>Cada postulación mantiene un contenedor único e independiente para su CV y análisis documental.</p>
+          </div>
+          <div className="form-panel-body" style={{ display: 'flex', flexWrap: 'wrap', gap: '0.6rem' }}>
+            {postulaciones.map(p => {
+              const seleccionada = p.id === postulacionActivaId;
+              return (
+                  <button
+                      key={p.id}
+                      type="button"
+                      className={seleccionada ? 'btn btn-primary' : 'btn btn-secondary'}
+                      onClick={() => setPostulacionActivaId(p.id)}
+                  >
+                    Postulación #{p.id} · {p.ofertaCargo}
+                  </button>
+              );
+            })}
+          </div>
+        </section>
+    )}
 
     <div className="form-helper-box">
       <strong>Herramienta de apoyo profesional:</strong> la IA extrae antecedentes y citas verificables desde PDFs anonimizados. La validación y decisión final corresponden exclusivamente al equipo humano de AquaChile.
@@ -409,7 +499,10 @@ export default function DocumentosCandidato() {
               <div className="doc-file-symbol"><Icono nombre="clipboard" size={29}/></div>
               <div className="doc-file-info">
                 <strong>{documento.nombreArchivo}</strong>
-                <small>{etiquetaTamano(documento.tamanoBytes)} · Subido el {new Date(documento.fechaCarga).toLocaleDateString('es-CL')}</small>
+                <small>
+                  {etiquetaTamano(documento.tamanoBytes)} · Subido el {new Date(documento.fechaCarga).toLocaleDateString('es-CL')}
+                  {documento.contenedorUuid ? ` · Contenedor: ${documento.contenedorUuid}` : ''}
+                </small>
               </div>
               {analista && (
                   <>
@@ -434,7 +527,9 @@ export default function DocumentosCandidato() {
                   </>
               )}
               <button type="button" className="btn btn-secondary" disabled={procesando} onClick={descargar}>Descargar CV</button>
-              {analista && <button type="button" className="btn btn-secondary" disabled={procesando} onClick={eliminar}>Eliminar CV</button>}
+              {analista && !postulacionActual && (
+                  <button type="button" className="btn btn-secondary" disabled={procesando} onClick={eliminar}>Eliminar CV</button>
+              )}
             </div>
             {!esPdfAnalizable && (
                 <p className="alert-box alert-box-error" style={{ marginTop: '0.75rem' }}>
@@ -605,7 +700,6 @@ export default function DocumentosCandidato() {
           </div>
 
           <div className="form-panel-body" style={{ display: 'flex', flexDirection: 'column', gap: '1.35rem' }}>
-            {/* Síntesis general */}
             <div className="form-grid">
               <div className="field">
                 <label htmlFor="ia-titulo">Título / Formación profesional principal</label>
@@ -629,7 +723,6 @@ export default function DocumentosCandidato() {
               </div>
             </div>
 
-            {/* Semáforo visual y Matriz de requisitos del cargo */}
             <div>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.65rem' }}>
                 <h3 style={{ margin: 0 }}>Semáforo de contraste contra criterios del cargo</h3>
@@ -654,7 +747,6 @@ export default function DocumentosCandidato() {
                   <p><small>No se contrastaron requisitos específicos porque este cargo aún no tiene criterios configurados.</small></p>
               ) : (
                   <>
-                    {/* Panel resumen de contadores y barra segmentada */}
                     <div style={{ padding: '0.9rem', borderRadius: '10px', background: '#f8fafc', border: '1px solid #cbd5e1', marginBottom: '0.9rem' }}>
                       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '0.65rem', marginBottom: '0.75rem' }}>
                         <div style={{ padding: '0.6rem 0.8rem', borderRadius: '8px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46' }}>
@@ -671,7 +763,6 @@ export default function DocumentosCandidato() {
                         </div>
                       </div>
 
-                      {/* Barra de progreso tricolor */}
                       <div
                           aria-label="Distribución visual de cumplimiento de criterios"
                           style={{ display: 'flex', height: '10px', borderRadius: '999px', overflow: 'hidden', background: '#e2e8f0' }}
@@ -688,7 +779,6 @@ export default function DocumentosCandidato() {
                       </div>
                     </div>
 
-                    {/* Tarjetas de criterios con color dinámico */}
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.8rem' }}>
                       {matriz.map((req, idx) => {
                         const tema = TEMA_SEMAFORO[req.resultadoAnalisis] || TEMA_SEMAFORO.REQUIERE_VERIFICACION;
@@ -704,7 +794,6 @@ export default function DocumentosCandidato() {
                                   background: tema.fondo,
                                   border: `1px solid ${tema.borde}`,
                                   borderLeft: `6px solid ${tema.acento}`,
-                                  transition: 'background-color 0.2s ease, border-color 0.2s ease',
                                 }}
                             >
                               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
@@ -746,7 +835,6 @@ export default function DocumentosCandidato() {
                                   <strong style={{ fontSize: '1rem', color: '#0f172a' }}>{req.requisito}</strong>
                                 </div>
 
-                                {/* Controles interactivos de revisión del analista */}
                                 {analista ? (
                                     <div style={{ display: 'flex', gap: '0.45rem', flexWrap: 'wrap' }}>
                                       <select
@@ -778,21 +866,18 @@ export default function DocumentosCandidato() {
                                 )}
                               </div>
 
-                              {/* Análisis / Brecha */}
                               {detalle && (
                                   <p style={{ margin: '0.5rem 0 0', fontSize: '0.9rem', color: '#1e293b' }}>
                                     {detalle}
                                   </p>
                               )}
 
-                              {/* Pregunta de entrevista sugerida para criterios en ámbar/rojo */}
                               {pregunta && (
                                   <div style={{ marginTop: '0.5rem', padding: '0.45rem 0.65rem', borderRadius: '6px', background: 'rgba(255,255,255,0.85)', border: `1px dashed ${tema.acento}`, fontSize: '0.85rem', color: tema.texto }}>
                                     <strong>Pregunta sugerida para entrevista:</strong> {pregunta}
                                   </div>
                               )}
 
-                              {/* Cita literal verificable del PDF */}
                               {req.evidencia?.fragmento ? (
                                   <div style={{ marginTop: '0.55rem', padding: '0.45rem 0.65rem', borderRadius: '6px', background: '#ffffff', borderLeft: `3px solid ${tema.acento}`, fontSize: '0.84rem' }}>
                                     <strong>Cita verificable (Pág. {req.evidencia.pagina ?? '?'} · {req.evidencia.estadoVerificacion}):</strong>{' '}
@@ -811,7 +896,6 @@ export default function DocumentosCandidato() {
               )}
             </div>
 
-            {/* Experiencias laborales con duración y evidencia */}
             <div>
               <h3>Experiencias laborales documentadas ({datosEditables.experienciasLaborales?.length || 0})</h3>
               {(!datosEditables.experienciasLaborales || datosEditables.experienciasLaborales.length === 0) ? (
@@ -866,7 +950,6 @@ export default function DocumentosCandidato() {
               )}
             </div>
 
-            {/* Formación académica */}
             <div>
               <h3>Formación académica ({datosEditables.formacionAcademica?.length || 0})</h3>
               {(!datosEditables.formacionAcademica || datosEditables.formacionAcademica.length === 0) ? (
@@ -885,7 +968,6 @@ export default function DocumentosCandidato() {
               )}
             </div>
 
-            {/* Habilidades, Competencias y Certificaciones */}
             <div className="form-grid">
               <div>
                 <h4>Habilidades técnicas</h4>
@@ -925,7 +1007,6 @@ export default function DocumentosCandidato() {
               </div>
             </div>
 
-            {/* Observaciones del analista y validación */}
             <div className="field form-wide">
               <label htmlFor="obs-analista">Observaciones y notas de verificación del analista</label>
               <textarea
@@ -963,28 +1044,30 @@ export default function DocumentosCandidato() {
         </section>
     )}
 
-    {/* 4. Subir o reemplazar CV (solo ANALISTA) */}
-    {analista && <section className="panel doc-panel" aria-label="Subir currículum">
-      <div className="form-panel-head">
-        <h2>{documento ? 'Reemplazar currículum' : 'Adjuntar currículum'}</h2>
-        <p>Se almacena una versión por candidato. Al subir otro CV, el análisis previo se invalida automáticamente.</p>
-      </div>
-      <form onSubmit={subir} className="form-panel-body doc-upload-form">
-        <div className="field">
-          <label htmlFor="archivo-cv">Seleccionar documento PDF o Word</label>
-          <input
-              id="archivo-cv"
-              type="file"
-              accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-              onChange={elegirArchivo}
-              disabled={procesando}
-          />
-          <span className="field-help">{archivo ? `${archivo.name} · ${etiquetaTamano(archivo.size)}` : 'Elige un archivo auténtico de máximo 5 MB.'}</span>
-        </div>
-        <button type="submit" className="btn btn-primary" disabled={!archivo || procesando}>
-          <Icono nombre="check" size={16}/>{procesando ? 'Guardando CV...' : documento ? 'Reemplazar CV' : 'Subir CV'}
-        </button>
-      </form>
-    </section>}
+    {/* 4. Carga directa heredada solo cuando no existe postulación pública */}
+    {analista && postulaciones.length === 0 && (
+        <section className="panel doc-panel" aria-label="Subir currículum">
+          <div className="form-panel-head">
+            <h2>{documento ? 'Reemplazar currículum' : 'Adjuntar currículum'}</h2>
+            <p>Carga administrativa interna. Los postulantes externos deben postular mediante ofertas publicadas.</p>
+          </div>
+          <form onSubmit={subir} className="form-panel-body doc-upload-form">
+            <div className="field">
+              <label htmlFor="archivo-cv">Seleccionar documento PDF o Word</label>
+              <input
+                  id="archivo-cv"
+                  type="file"
+                  accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                  onChange={elegirArchivo}
+                  disabled={procesando}
+              />
+              <span className="field-help">{archivo ? `${archivo.name} · ${etiquetaTamano(archivo.size)}` : 'Elige un archivo auténtico de máximo 5 MB.'}</span>
+            </div>
+            <button type="submit" className="btn btn-primary" disabled={!archivo || procesando}>
+              <Icono nombre="check" size={16}/>{procesando ? 'Guardando CV...' : documento ? 'Reemplazar CV' : 'Subir CV'}
+            </button>
+          </form>
+        </section>
+    )}
   </div>;
 }
