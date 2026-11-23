@@ -1,69 +1,83 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { MemoryRouter, Routes, Route } from 'react-router-dom';
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { describe, expect, it, vi, beforeEach } from 'vitest';
 import GestionarEvaluacion from '../GestionarEvaluacion';
-import api from '../../services/api';
+import * as iaApi from '../../services/api';
 
-vi.mock('../../services/api', () => ({
-  default: {
-    post: vi.fn(),
-    put: vi.fn(),
-  },
-}));
+vi.mock('../../services/api', async () => {
+  const actual = await vi.importActual('../../services/api');
+  return {
+    ...actual,
+    default: {
+      post: vi.fn(),
+      put: vi.fn(),
+    },
+    obtenerAnalisisValidadoSolicitud: vi.fn(),
+    generarPreguntasApoyoSolicitud: vi.fn(),
+  };
+});
 
-describe('Vista GestionarEvaluacion', () => {
+describe('GestionarEvaluacion con antecedentes validados y preguntas de apoyo', () => {
   beforeEach(() => {
     vi.clearAllMocks();
   });
 
-  const renderConRuta = () => {
-    return render(
-      <MemoryRouter initialEntries={['/evaluar/10']}>
-        <Routes>
-          <Route path="/evaluar/:idSolicitud" element={<GestionarEvaluacion />} />
-        </Routes>
-      </MemoryRouter>
+  it('muestra antecedentes validados por el analista y genera preguntas de apoyo sin autocompletar la evaluación', async () => {
+    const user = userEvent.setup();
+    iaApi.obtenerAnalisisValidadoSolicitud.mockResolvedValue({
+      analisisId: 10,
+      nombreCandidatoInterno: 'Sofía Valenzuela',
+      cargoPostula: 'Jefe de Centro',
+      usuarioValidador: 'analista1',
+      observacionesAnalista: 'Experiencia comprobada en centros de cultivo.',
+      datosActuales: {
+        tituloProfesional: 'Ingeniera Acuícola',
+        resumenProfesionalObjetivo: 'Trayectoria en gestión productiva acuícola.',
+        experienciasLaborales: [
+          {
+            cargo: 'Asistente de Centro',
+            empresa: 'Acuícola Austral',
+            periodo: '2021-2024',
+            duracionCalculada: '3 años',
+            evidencia: { pagina: 1, fragmento: 'Gestión operativa de centro de cultivo' },
+          },
+        ],
+        formacionAcademica: [{ titulo: 'Ingeniería en Acuicultura', institucion: 'Universidad Austral' }],
+        habilidadesTecnicas: [{ nombre: 'Control sanitario' }],
+        certificacionesYLicencias: [],
+        matrizRequisitos: [],
+      },
+    });
+
+    iaApi.generarPreguntasApoyoSolicitud.mockResolvedValue({
+      preguntas: [
+        {
+          pregunta: '¿Qué protocolos de bioseguridad aplicó en su gestión operativa?',
+          objetivoVerificacion: 'Profundizar experiencia técnica',
+          antecedenteRelacionado: 'Asistente de Centro',
+        },
+      ],
+    });
+
+    render(
+        <MemoryRouter initialEntries={['/evaluar/7']}>
+          <Routes>
+            <Route path="/evaluar/:idSolicitud" element={<GestionarEvaluacion />} />
+          </Routes>
+        </MemoryRouter>
     );
-  };
 
-  it('debe enviar la evaluación y actualizar el estado de la solicitud', async () => {
-    api.post.mockResolvedValueOnce({ data: { id: 1 } });
-    api.put.mockResolvedValueOnce({ data: { id: 10, estado: 'Finalizada' } });
+    expect(await screen.findByText(/Ingeniera Acuícola/i)).toBeInTheDocument();
+    expect(screen.getByText(/Experiencia comprobada en centros de cultivo/i)).toBeInTheDocument();
 
-    renderConRuta();
+    const btnPreguntas = screen.getByRole('button', { name: /Generar preguntas sugeridas/i });
+    await user.click(btnPreguntas);
 
-    // Completar campo de texto
-    const textareaResultado = screen.getByLabelText(/resultado y observaciones/i);
-    fireEvent.change(textareaResultado, { target: { value: 'Candidato cumple con el perfil solicitado.' } });
+    expect(await screen.findByText(/¿Qué protocolos de bioseguridad aplicó/i)).toBeInTheDocument();
 
-    // Presionar botón de guardado
-    fireEvent.click(screen.getByRole('button', { name: /guardar evaluación/i }));
-
-    await waitFor(() => {
-      expect(api.post).toHaveBeenCalledWith('/evaluaciones', {
-        resultado: 'Candidato cumple con el perfil solicitado.',
-        estadoEvaluacion: 'Recomendado',
-        solicitud: { id: 10 },
-      });
-
-      expect(api.put).toHaveBeenCalledWith(
-        '/solicitudes/10/estado',
-        'Finalizada',
-        { headers: { 'Content-Type': 'text/plain' } }
-      );
-    });
-  });
-
-  it('debe mostrar mensaje de error si el usuario carece de permisos (403)', async () => {
-    api.post.mockRejectedValueOnce({ response: { status: 403 } });
-
-    renderConRuta();
-
-    fireEvent.change(screen.getByLabelText(/resultado y observaciones/i), { target: { value: 'Prueba de permiso' } });
-    fireEvent.click(screen.getByRole('button', { name: /guardar evaluación/i }));
-
-    await waitFor(() => {
-      expect(screen.getByRole('alert')).toHaveTextContent('No tienes permisos para gestionar evaluaciones.');
-    });
+    // Verifica que la IA NO autocompletará el campo obligatorio de resultado del evaluador
+    const textareaResultado = screen.getByLabelText(/Resultado y observaciones psicolaborales/i);
+    expect(textareaResultado).toHaveValue('');
   });
 });

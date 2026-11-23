@@ -1,21 +1,31 @@
-package com.example.proyectoAquachile.Model; // Ajusta a tu paquete real
+package com.example.proyectoAquachile.Model;
 
-import com.example.proyectoAquachile.Model.Candidato;
+import com.fasterxml.jackson.annotation.JsonProperty;
 import jakarta.persistence.*;
 import java.time.LocalDate;
 
 @Entity
-@Table(name = "solicitudes_evaluacion")
+@Table(name = "solicitudes_evaluacion", indexes = {
+        @Index(name = "idx_solicitud_candidato", columnList = "candidato_id"),
+        @Index(name = "idx_solicitud_postulacion", columnList = "postulacion_id")
+})
 public class SolicitudEvaluacion {
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    // Relación: Muchas solicitudes pueden pertenecer a un mismo candidato
     @ManyToOne
     @JoinColumn(name = "candidato_id", nullable = false)
     private Candidato candidato;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "postulacion_id")
+    @JsonProperty(access = JsonProperty.Access.WRITE_ONLY)
+    private Postulacion postulacion;
+
+    @Transient
+    private Long postulacionIdInput;
 
     private String cargo;
 
@@ -25,7 +35,6 @@ public class SolicitudEvaluacion {
     @Column(name = "fecha_solicitud")
     private LocalDate fechaSolicitud;
 
-    // Estados sugeridos: Pendiente, En proceso, Finalizada
     private String estado;
 
     @Column(name = "profesional_responsable")
@@ -34,8 +43,21 @@ public class SolicitudEvaluacion {
     private String observaciones;
 
     public SolicitudEvaluacion() {
-        this.fechaSolicitud = LocalDate.now(); // Asigna la fecha actual automáticamente
-        this.estado = "Pendiente"; // Estado inicial por defecto
+        this.fechaSolicitud = LocalDate.now();
+        this.estado = "Pendiente";
+    }
+
+    @JsonProperty("postulacionId")
+    public Long getPostulacionId() {
+        if (postulacion != null && postulacion.getId() != null) {
+            return postulacion.getId();
+        }
+        return postulacionIdInput;
+    }
+
+    @JsonProperty("postulacionId")
+    public void setPostulacionId(Long postulacionId) {
+        this.postulacionIdInput = postulacionId;
     }
 
     // --- GETTERS Y SETTERS ---
@@ -44,6 +66,12 @@ public class SolicitudEvaluacion {
 
     public Candidato getCandidato() { return candidato; }
     public void setCandidato(Candidato candidato) { this.candidato = candidato; }
+
+    public Postulacion getPostulacion() { return postulacion; }
+    public void setPostulacion(Postulacion postulacion) {
+        this.postulacion = postulacion;
+        this.postulacionIdInput = (postulacion != null) ? postulacion.getId() : null;
+    }
 
     public String getCargo() { return cargo; }
     public void setCargo(String cargo) { this.cargo = cargo; }
