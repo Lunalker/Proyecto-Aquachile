@@ -38,7 +38,7 @@ describe('Vista CandidatoDetalle', () => {
     );
   };
 
-  it('debe cargar y desplegar los datos del candidato', async () => {
+  it('debe cargar y desplegar los datos del candidato y sus accesos directos', async () => {
     api.get.mockResolvedValueOnce({ data: candidatoMock });
 
     renderConRuta();
@@ -46,7 +46,14 @@ describe('Vista CandidatoDetalle', () => {
     await waitFor(() => {
       expect(screen.getByText('María González')).toBeInTheDocument();
       expect(screen.getByText('maria@aquachile.cl')).toBeInTheDocument();
+      expect(screen.getByText('Jefa de Planta')).toBeInTheDocument();
     });
+
+    const linkDocumentos = screen.getByRole('link', { name: /documentos \/ cv/i });
+    expect(linkDocumentos).toHaveAttribute('href', '/documentos/1');
+
+    const linkSolicitud = screen.getByRole('link', { name: /crear solicitud/i });
+    expect(linkSolicitud).toHaveAttribute('href', '/nueva-solicitud/1');
   });
 
   it('debe permitir habilitar la edición y guardar los cambios', async () => {
@@ -57,13 +64,11 @@ describe('Vista CandidatoDetalle', () => {
 
     await waitFor(() => expect(screen.getByText('María González')).toBeInTheDocument());
 
-    // Activar formulario de edición
     fireEvent.click(screen.getByRole('button', { name: /editar candidato/i }));
 
     const inputNombre = screen.getByLabelText(/nombre completo \*/i);
     fireEvent.change(inputNombre, { target: { value: 'María González Updated' } });
 
-    // Enviar el formulario
     fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
 
     await waitFor(() => {
@@ -71,6 +76,58 @@ describe('Vista CandidatoDetalle', () => {
         nombre: 'María González Updated',
       }));
       expect(screen.getByRole('status')).toHaveTextContent(/actualizaron correctamente/i);
+    });
+  });
+
+  it('debe cancelar la edición restaurando los datos originales', async () => {
+    api.get.mockResolvedValueOnce({ data: candidatoMock });
+
+    renderConRuta();
+
+    await waitFor(() => expect(screen.getByText('María González')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /editar candidato/i }));
+    const inputNombre = screen.getByLabelText(/nombre completo \*/i);
+    fireEvent.change(inputNombre, { target: { value: 'Cambio Temporal' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /cancelar/i }));
+
+    expect(screen.getByText('María González')).toBeInTheDocument();
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('debe validar campos obligatorios antes de enviar la actualización', async () => {
+    api.get.mockResolvedValueOnce({ data: candidatoMock });
+
+    renderConRuta();
+
+    await waitFor(() => expect(screen.getByText('María González')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /editar candidato/i }));
+    fireEvent.change(screen.getByLabelText(/nombre completo \*/i), { target: { value: '' } });
+    fireEvent.change(screen.getByLabelText(/correo electrónico \*/i), { target: { value: 'correo-invalido' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/revisa los campos marcados antes de guardar/i);
+    });
+    expect(api.put).not.toHaveBeenCalled();
+  });
+
+  it('debe mostrar mensaje de conflicto (409) si el correo ya pertenece a otro candidato', async () => {
+    api.get.mockResolvedValueOnce({ data: candidatoMock });
+    api.put.mockRejectedValueOnce({ response: { status: 409 } });
+
+    renderConRuta();
+
+    await waitFor(() => expect(screen.getByText('María González')).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole('button', { name: /editar candidato/i }));
+    fireEvent.click(screen.getByRole('button', { name: /guardar cambios/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('alert')).toHaveTextContent(/correo no pertenezca a otro candidato/i);
     });
   });
 

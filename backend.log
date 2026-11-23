@@ -35,21 +35,21 @@
 
  :: Spring Boot ::                (v4.1.1)
 
-2026-11-17T18:58:08.364-03:00  INFO 6542 --- [proyectoAquachile] [           main] c.e.p.ProyectoAquachileApplication       : Starting ProyectoAquachileApplication using Java 26.0.1 with PID 6542 (/home/lunalker/Escritorio/Pendejadas/Proyecto-Aquachile/proyectoAquachile/target/classes started by lunalker in /home/lunalker/Escritorio/Pendejadas/Proyecto-Aquachile/proyectoAquachile)
-2026-11-17T18:58:08.382-03:00  INFO 6542 --- [proyectoAquachile] [           main] c.e.p.ProyectoAquachileApplication       : No active profile set, falling back to 1 default profile: "default"
-2026-11-17T18:58:11.895-03:00  INFO 6542 --- [proyectoAquachile] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
-2026-11-17T18:58:12.212-03:00  INFO 6542 --- [proyectoAquachile] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 258 ms. Found 5 JPA repository interfaces.
-2026-11-17T18:58:14.641-03:00  INFO 6542 --- [proyectoAquachile] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
-2026-11-17T18:58:14.706-03:00  INFO 6542 --- [proyectoAquachile] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
-2026-11-17T18:58:14.707-03:00  INFO 6542 --- [proyectoAquachile] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
-2026-11-17T18:58:14.968-03:00  INFO 6542 --- [proyectoAquachile] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 6270 ms
-2026-11-17T18:58:15.729-03:00  INFO 6542 --- [proyectoAquachile] [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
-2026-11-17T18:58:16.403-03:00  INFO 6542 --- [proyectoAquachile] [           main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
-2026-11-17T18:58:18.890-03:00  INFO 6542 --- [proyectoAquachile] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
-2026-11-17T18:58:19.044-03:00  INFO 6542 --- [proyectoAquachile] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
-2026-11-17T18:58:20.279-03:00  INFO 6542 --- [proyectoAquachile] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@714c74eb
-2026-11-17T18:58:20.282-03:00  INFO 6542 --- [proyectoAquachile] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
-2026-11-17T18:58:20.624-03:00  INFO 6542 --- [proyectoAquachile] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
+2026-11-20T10:20:14.005-03:00  INFO 4786 --- [proyectoAquachile] [           main] c.e.p.ProyectoAquachileApplication       : Starting ProyectoAquachileApplication using Java 26.0.1 with PID 4786 (/home/lunalker/Escritorio/Pendejadas/Proyecto-Aquachile/proyectoAquachile/target/classes started by lunalker in /home/lunalker/Escritorio/Pendejadas/Proyecto-Aquachile/proyectoAquachile)
+2026-11-20T10:20:14.017-03:00  INFO 4786 --- [proyectoAquachile] [           main] c.e.p.ProyectoAquachileApplication       : No active profile set, falling back to 1 default profile: "default"
+2026-11-20T10:20:17.360-03:00  INFO 4786 --- [proyectoAquachile] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-11-20T10:20:17.593-03:00  INFO 4786 --- [proyectoAquachile] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 190 ms. Found 5 JPA repository interfaces.
+2026-11-20T10:20:20.024-03:00  INFO 4786 --- [proyectoAquachile] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat initialized with port 8080 (http)
+2026-11-20T10:20:20.120-03:00  INFO 4786 --- [proyectoAquachile] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-11-20T10:20:20.121-03:00  INFO 4786 --- [proyectoAquachile] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/11.0.24]
+2026-11-20T10:20:20.408-03:00  INFO 4786 --- [proyectoAquachile] [           main] b.w.c.s.WebApplicationContextInitializer : Root WebApplicationContext: initialization completed in 6157 ms
+2026-11-20T10:20:21.252-03:00  INFO 4786 --- [proyectoAquachile] [           main] org.hibernate.orm.jpa                    : HHH008540: Processing PersistenceUnitInfo [name: default]
+2026-11-20T10:20:21.879-03:00  INFO 4786 --- [proyectoAquachile] [           main] org.hibernate.orm.core                   : HHH000001: Hibernate ORM core version 7.4.5.Final
+2026-11-20T10:20:24.224-03:00  INFO 4786 --- [proyectoAquachile] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-11-20T10:20:24.459-03:00  INFO 4786 --- [proyectoAquachile] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-11-20T10:20:25.701-03:00  INFO 4786 --- [proyectoAquachile] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection com.mysql.cj.jdbc.ConnectionImpl@1b19712f
+2026-11-20T10:20:25.704-03:00  INFO 4786 --- [proyectoAquachile] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-11-20T10:20:26.253-03:00  INFO 4786 --- [proyectoAquachile] [           main] org.hibernate.orm.connections.pooling    : HHH10001005: Database info:
 	Database JDBC URL [jdbc:mysql://localhost:3306/aquachile_db?useSSL=false&allowPublicKeyRetrieval=true&serverTimezone=UTC]
 	Database driver: MySQL Connector/J
 	Database dialect: MySQLDialect
@@ -61,20 +61,12 @@
 	Pool: DataSourceConnectionProvider
 	Minimum pool size: undefined/unknown
 	Maximum pool size: undefined/unknown
-2026-11-17T18:58:24.636-03:00  INFO 6542 --- [proyectoAquachile] [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
-2026-11-17T18:58:24.835-03:00  INFO 6542 --- [proyectoAquachile] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
-2026-11-17T18:58:25.160-03:00  INFO 6542 --- [proyectoAquachile] [           main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
-2026-11-17T18:58:26.273-03:00  WARN 6542 --- [proyectoAquachile] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
-2026-11-17T18:58:26.576-03:00  INFO 6542 --- [proyectoAquachile] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name usuarioDetailsService
-2026-11-17T18:58:27.677-03:00  INFO 6542 --- [proyectoAquachile] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
-2026-11-17T18:58:27.686-03:00  INFO 6542 --- [proyectoAquachile] [           main] c.e.p.ProyectoAquachileApplication       : Started ProyectoAquachileApplication in 21.719 seconds (process running for 23.586)
+2026-11-20T10:20:30.159-03:00  INFO 4786 --- [proyectoAquachile] [           main] org.hibernate.orm.core                   : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-11-20T10:20:30.355-03:00  INFO 4786 --- [proyectoAquachile] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-11-20T10:20:30.664-03:00  INFO 4786 --- [proyectoAquachile] [           main] o.s.d.j.r.query.QueryEnhancerFactories   : Hibernate is in classpath; If applicable, HQL parser will be used.
+2026-11-20T10:20:31.709-03:00  WARN 4786 --- [proyectoAquachile] [           main] JpaBaseConfiguration$JpaWebConfiguration : spring.jpa.open-in-view is enabled by default. Therefore, database queries may be performed during view rendering. Explicitly configure spring.jpa.open-in-view to disable this warning
+2026-11-20T10:20:31.969-03:00  INFO 4786 --- [proyectoAquachile] [           main] r$InitializeUserDetailsManagerConfigurer : Global AuthenticationManager configured with UserDetailsService bean with name usuarioDetailsService
+2026-11-20T10:20:33.282-03:00  INFO 4786 --- [proyectoAquachile] [           main] o.s.boot.tomcat.TomcatWebServer          : Tomcat started on port 8080 (http) with context path '/'
+2026-11-20T10:20:33.291-03:00  INFO 4786 --- [proyectoAquachile] [           main] c.e.p.ProyectoAquachileApplication       : Started ProyectoAquachileApplication in 21.42 seconds (process running for 23.091)
 Hibernate: select u1_0.id from usuarios u1_0 where u1_0.username=? limit ?
 Hibernate: select u1_0.id from usuarios u1_0 where u1_0.username=? limit ?
-2026-11-17T18:58:58.524-03:00  INFO 6542 --- [proyectoAquachile] [nio-8080-exec-2] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
-2026-11-17T18:58:58.524-03:00  INFO 6542 --- [proyectoAquachile] [nio-8080-exec-2] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
-2026-11-17T18:58:58.528-03:00  INFO 6542 --- [proyectoAquachile] [nio-8080-exec-2] o.s.web.servlet.DispatcherServlet        : Completed initialization in 3 ms
-2026-11-17T18:59:43.257-03:00  INFO 6542 --- [proyectoAquachile] [ionShutdownHook] o.s.boot.tomcat.GracefulShutdown         : Commencing graceful shutdown. Waiting for active requests to complete
-2026-11-17T18:59:43.268-03:00  INFO 6542 --- [proyectoAquachile] [tomcat-shutdown] o.s.boot.tomcat.GracefulShutdown         : Graceful shutdown complete
-2026-11-17T18:59:43.276-03:00  INFO 6542 --- [proyectoAquachile] [ionShutdownHook] j.LocalContainerEntityManagerFactoryBean : Closing JPA EntityManagerFactory for persistence unit 'default'
-2026-11-17T18:59:43.281-03:00  INFO 6542 --- [proyectoAquachile] [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown initiated...
-2026-11-17T18:59:43.288-03:00  INFO 6542 --- [proyectoAquachile] [ionShutdownHook] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Shutdown completed.
