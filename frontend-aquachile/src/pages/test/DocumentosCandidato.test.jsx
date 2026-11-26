@@ -1,150 +1,127 @@
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { describe, expect, it, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import DocumentosCandidato from '../DocumentosCandidato';
-import api, * as iaApi from '../../services/api';
+import api from '../../services/api';
+import * as AuthContext from '../../context/AuthContext';
 
-vi.mock('../../context/AuthContext', () => ({
-  useAuth: () => ({ usuario: { username: 'analista1', rol: 'ANALISTA' } }),
+vi.mock('../../services/api', () => ({
+  default: { get: vi.fn(), post: vi.fn(), delete: vi.fn() },
 }));
+vi.mock('../../context/AuthContext', () => ({ useAuth: vi.fn() }));
 
-vi.mock('../../services/api', async () => {
-  const actual = await vi.importActual('../../services/api');
-  return {
-    ...actual,
-    default: {
-      get: vi.fn(),
-      post: vi.fn(),
-      put: vi.fn(),
-      delete: vi.fn(),
-    },
-    obtenerAnalisisCv: vi.fn(),
-    analizarCvCandidato: vi.fn(),
-    guardarValidacionAnalisis: vi.fn(),
-    listarRequisitosCargo: vi.fn(),
-    crearRequisitoCargo: vi.fn(),
-    eliminarRequisitoCargo: vi.fn(),
-  };
-});
+function renderizar(state = { nombre: 'Camila Soto' }) {
+  return render(
+    <MemoryRouter initialEntries={[{ pathname: '/documentos/3', state }]}>
+      <Routes>
+        <Route path="/documentos/:idCandidato" element={<DocumentosCandidato />} />
+      </Routes>
+    </MemoryRouter>
+  );
+}
 
-describe('DocumentosCandidato con análisis IA y revisión humana', () => {
+const meta = {
+  id: 12,
+  candidatoId: 3,
+  nombreArchivo: 'CV_demo.pdf',
+  tipoContenido: 'application/pdf',
+  tamanoBytes: 2100,
+  fechaCarga: '2026-11-07T15:30:00',
+};
+
+describe('Módulo de CV auténticos - DocumentosCandidato', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    api.get.mockImplementation((url) => {
-      if (url.includes('/documentos/candidatos/')) {
-        return Promise.resolve({
-          data: {
-            id: 5,
-            candidatoId: 1,
-            nombreArchivo: 'cv_sofia.pdf',
-            tipoContenido: 'application/pdf',
-            tamanoBytes: 120000,
-            fechaCarga: '2026-11-18T12:00:00',
-            analizableIa: true,
-          },
-        });
-      }
-      return Promise.resolve({
-        data: { id: 1, nombre: 'Sofía Valenzuela', cargoPostula: 'Técnico en Mantención', familiaCargo: 'Operaciones' },
-      });
-    });
-    iaApi.obtenerAnalisisCv.mockResolvedValue(null);
-    iaApi.listarRequisitosCargo.mockResolvedValue([]);
+    AuthContext.useAuth.mockReturnValue({ usuario: { rol: 'ANALISTA' } });
+    URL.createObjectURL = vi.fn(() => 'blob:http://localhost/cv-mock');
+    URL.revokeObjectURL = vi.fn();
+    window.confirm = vi.fn(() => true);
   });
 
-  it('permite analizar el CV, muestra evidencias verificables y valida antecedentes', async () => {
+  it('muestra el formulario al Analista si no existe un CV y el nombre del candidato', async () => {
+    api.get.mockRejectedValueOnce({ response: { status: 404 } });
+    renderizar();
+
+    expect(await screen.findByText(/todavía no tiene un CV adjunto/i)).toBeInTheDocument();
+    expect(screen.getByText(/Camila Soto · Archivo asociado/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/seleccionar documento pdf o word/i)).toBeInTheDocument();
+  });
+
+  it('sube un CV real mediante FormData y muestra el resultado', async () => {
+    api.get.mockRejectedValueOnce({ response: { status: 404 } });
+    api.post.mockResolvedValueOnce({ data: meta });
     const user = userEvent.setup();
-    const respuestaAnalisis = {
-      analisisId: 1,
-      candidatoId: 1,
-      cargoPostula: 'Técnico en Mantención',
-      nombreArchivoAnalizado: 'cv_sofia.pdf',
-      modeloUtilizado: 'llama-3.1-8b-instant',
-      fechaGeneracion: '2026-11-18T12:05:00',
-      estadoAnalisis: 'GENERADO',
-      estadoRevision: 'PENDIENTE_REVISION',
-      observacionesAnalista: '',
-      datosActuales: {
-        tituloProfesional: 'Técnico en Mantención Industrial',
-        resumenProfesionalObjetivo: 'Experiencia en plantas industriales.',
-        formacionAcademica: [],
-        experienciasLaborales: [
-          {
-            cargo: 'Técnico Mantención',
-            empresa: 'Empresa Sur',
-            periodo: '2022-2024',
-            duracionCalculada: '2 años',
-            funciones: ['Mantenimiento preventivo'],
-            evidencia: { pagina: 1, fragmento: 'Mantenimiento preventivo de equipos', estadoVerificacion: 'VERIFICADO_EN_DOCUMENTO' },
-            estadoRevisionItem: 'PENDIENTE',
-          },
-        ],
-        habilidadesTecnicas: [],
-        competenciasDeclaradas: [],
-        certificacionesYLicencias: [],
-        matrizRequisitos: [],
-        datosFaltantesOAmbiguos: [],
-      },
-    };
+    renderizar();
 
-    iaApi.analizarCvCandidato.mockResolvedValue(respuestaAnalisis);
-    iaApi.guardarValidacionAnalisis.mockResolvedValue({
-      ...respuestaAnalisis,
-      estadoRevision: 'VALIDADO',
-      usuarioValidador: 'analista1',
-    });
-
-    render(
-        <MemoryRouter initialEntries={['/documentos/1']}>
-          <Routes>
-            <Route path="/documentos/:idCandidato" element={<DocumentosCandidato />} />
-          </Routes>
-        </MemoryRouter>
-    );
-
-    const botonAnalizar = await screen.findByRole('button', { name: /Analizar CV con IA/i });
-    await user.click(botonAnalizar);
-
-    expect(await screen.findByText(/Mantenimiento preventivo de equipos/i)).toBeInTheDocument();
-
-    const botonValidar = screen.getByRole('button', { name: /Validar antecedentes para evaluador/i });
-    await user.click(botonValidar);
+    const selector = await screen.findByLabelText(/seleccionar documento pdf o word/i);
+    const cv = new File(['%PDF-1.4contenido ficticio'], 'CV_demo.pdf', { type: 'application/pdf' });
+    await user.upload(selector, cv);
+    await user.click(screen.getByRole('button', { name: /subir cv/i }));
 
     await waitFor(() => {
-      expect(iaApi.guardarValidacionAnalisis).toHaveBeenCalledWith('1', expect.objectContaining({ confirmarValidacion: true }));
+      expect(api.post).toHaveBeenCalledWith('/documentos/candidatos/3', expect.any(FormData));
+      const [url, datos] = api.post.mock.calls[0];
+      expect(url).toBe('/documentos/candidatos/3');
+      expect(datos.get('archivo').name).toBe('CV_demo.pdf');
+      expect(screen.getByRole('status')).toHaveTextContent(/guardado correctamente/i);
     });
   });
 
-  it('deshabilita el análisis IA cuando el documento adjunto es DOCX', async () => {
+  it('impide seleccionar un archivo con extensión no permitida o mayor a 5 MB', async () => {
+    api.get.mockRejectedValueOnce({ response: { status: 404 } });
+    const user = userEvent.setup({ applyAccept: false });
+    renderizar();
+
+    const selector = await screen.findByLabelText(/seleccionar documento pdf o word/i);
+    await user.upload(selector, new File(['texto'], 'nota.txt', { type: 'text/plain' }));
+    expect(screen.getByRole('alert')).toHaveTextContent(/solo se aceptan documentos/i);
+    expect(screen.getByRole('button', { name: /subir cv/i })).toBeDisabled();
+
+    const archivoGrande = new File(['x'], 'pesado.pdf', { type: 'application/pdf' });
+    Object.defineProperty(archivoGrande, 'size', { value: 6 * 1024 * 1024 });
+    await user.upload(selector, archivoGrande);
+    expect(screen.getByRole('alert')).toHaveTextContent(/entre 1 byte y 5 MB/i);
+  });
+
+  it('permite descargar y eliminar el CV al Analista', async () => {
     api.get.mockImplementation((url) => {
-      if (url.includes('/documentos/candidatos/')) {
-        return Promise.resolve({
-          data: {
-            id: 6,
-            candidatoId: 1,
-            nombreArchivo: 'cv_word.docx',
-            tipoContenido: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            tamanoBytes: 85000,
-            fechaCarga: '2026-11-18T12:00:00',
-            analizableIa: false,
-            motivoNoAnalizable: 'El análisis con IA admite únicamente documentos PDF auténticos.',
-          },
-        });
-      }
-      return Promise.resolve({ data: { id: 1, nombre: 'Sofía Valenzuela' } });
+      if (url.endsWith('/descargar')) return Promise.resolve({ data: new Uint8Array([1, 2, 3]) });
+      return Promise.resolve({ data: meta });
+    });
+    api.delete.mockResolvedValueOnce({});
+    const user = userEvent.setup();
+    renderizar();
+
+    expect(await screen.findByText('CV_demo.pdf')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: /reemplazar currículum/i })).toBeInTheDocument();
+
+    // Descargar CV
+    await user.click(screen.getByRole('button', { name: /descargar cv/i }));
+    await waitFor(() => {
+      expect(api.get).toHaveBeenCalledWith('/documentos/candidatos/3/descargar', { responseType: 'blob' });
+      expect(URL.createObjectURL).toHaveBeenCalled();
     });
 
-    render(
-        <MemoryRouter initialEntries={['/documentos/1']}>
-          <Routes>
-            <Route path="/documentos/:idCandidato" element={<DocumentosCandidato />} />
-          </Routes>
-        </MemoryRouter>
-    );
+    // Eliminar CV
+    await user.click(screen.getByRole('button', { name: /eliminar cv/i }));
+    await waitFor(() => {
+      expect(window.confirm).toHaveBeenCalled();
+      expect(api.delete).toHaveBeenCalledWith('/documentos/candidatos/3');
+      expect(screen.getByRole('status')).toHaveTextContent(/eliminó correctamente/i);
+      expect(screen.getByText(/todavía no tiene un CV adjunto/i)).toBeInTheDocument();
+    });
+  });
 
-    const botonAnalizar = await screen.findByRole('button', { name: /Analizar CV con IA/i });
-    expect(botonAnalizar).toBeDisabled();
-    expect(screen.getByText(/admite únicamente documentos PDF auténticos/i)).toBeInTheDocument();
+  it('el Evaluador puede consultar y descargar el archivo, pero no subir ni eliminar', async () => {
+    AuthContext.useAuth.mockReturnValue({ usuario: { rol: 'EVALUADOR' } });
+    api.get.mockResolvedValueOnce({ data: meta });
+    renderizar();
+
+    expect(await screen.findByText('CV_demo.pdf')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /descargar cv/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/seleccionar documento/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /eliminar cv/i })).not.toBeInTheDocument();
+    expect(screen.getByRole('link', { name: /volver/i })).toHaveAttribute('href', '/solicitudes');
   });
 });
