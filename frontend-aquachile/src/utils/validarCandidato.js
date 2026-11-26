@@ -3,7 +3,8 @@
 export function normalizarCandidato(candidato) {
   return Object.fromEntries(
     Object.entries(candidato).map(([clave, valor]) => [
-      clave, typeof valor === 'string' ? valor.trim() : valor,
+      clave,
+      typeof valor === 'string' ? valor.trim() : valor,
     ])
   );
 }
@@ -30,6 +31,10 @@ export function validarCandidato(candidato) {
   if (!['Interno', 'Externo'].includes(datos.origen)) {
     errores.origen = 'Selecciona un origen válido.';
   }
+
+  // Normalizar campos opcionales de cita para Spring Boot (LocalDate / LocalTime)
+  datos.fechaCita = datos.fechaCita || null;
+  datos.horaCita = datos.horaCita || null;
 
   return { datos, errores, valido: Object.keys(errores).length === 0 };
 }

@@ -48,7 +48,9 @@ public class PostulacionService {
             String correo,
             String telefono,
             String ubicacion,
-            String unidad
+            String unidad,
+            String fechaCita,
+            String horaCita
     ) {}
 
     public record PostulacionResumenDTO(
@@ -57,6 +59,8 @@ public class PostulacionService {
             String candidatoNombre,
             String candidatoCorreo,
             String candidatoTelefono,
+            String candidatoFechaCita,
+            String candidatoHoraCita,
             Long ofertaId,
             String ofertaCargo,
             String ofertaCategoria,
@@ -96,10 +100,8 @@ public class PostulacionService {
             DatosPostulantePublico datos,
             MultipartFile archivoCv) {
 
-        // 1. Validar información del postulante
         validarDatosPostulante(datos);
 
-        // 2. Comprobar que la oferta exista y esté publicada
         OfertaLaboral oferta = ofertaRepository
                 .findByIdAndEstadoPublicacion(datos.ofertaId(), OfertaLaboral.ESTADO_PUBLICADA)
                 .orElseThrow(() -> new ResponseStatusException(
@@ -107,10 +109,8 @@ public class PostulacionService {
                         "La oferta laboral seleccionada no existe o no se encuentra publicada."
                 ));
 
-        // 3. Validar archivo CV (tamaño <= 5 MB, extensión, firma binaria auténtica, MIME detectado y nombre seguro)
         ValidadorArchivoCvUtil.ArchivoCvValidado cvValidado = ValidadorArchivoCvUtil.validar(archivoCv);
 
-        // 4. Registrar o recuperar al candidato
         String correoNormalizado = datos.correo().trim().toLowerCase(Locale.ROOT);
         Candidato candidato = candidatoRepository.findByCorreoIgnoreCase(correoNormalizado)
                 .orElseGet(Candidato::new);
@@ -131,9 +131,14 @@ public class PostulacionService {
         if (datos.unidad() != null && !datos.unidad().isBlank()) {
             candidato.setUnidad(datos.unidad().trim());
         }
+        if (datos.fechaCita() != null && !datos.fechaCita().isBlank()) {
+            candidato.setFechaCita(datos.fechaCita().trim());
+        }
+        if (datos.horaCita() != null && !datos.horaCita().isBlank()) {
+            candidato.setHoraCita(datos.horaCita().trim());
+        }
         candidato = candidatoRepository.save(candidato);
 
-        // 5. Prevenir postulaciones duplicadas del mismo candidato a la misma oferta
         if (postulacionRepository.existsByCandidato_IdAndOfertaLaboral_Id(candidato.getId(), oferta.getId())) {
             throw new ResponseStatusException(
                     HttpStatus.CONFLICT,
@@ -141,7 +146,6 @@ public class PostulacionService {
             );
         }
 
-        // 6. Crear la postulación y generar UUID + nombre descriptivo de contenedor único
         String contenedorUuid = UUID.randomUUID().toString();
         String nombreContenedor = Postulacion.generarNombreContenedorSeguro(candidato.getNombre(), contenedorUuid);
 
@@ -153,7 +157,6 @@ public class PostulacionService {
         postulacion.setContenedorUuid(contenedorUuid);
         postulacion.setNombreContenedor(nombreContenedor);
 
-        // 7. Guardar el CV binario en DocumentoPostulacion (1:1 con Postulacion)
         DocumentoPostulacion doc = new DocumentoPostulacion();
         doc.setPostulacion(postulacion);
         doc.setNombreOriginal(cvValidado.nombreSeguro());
@@ -262,6 +265,8 @@ public class PostulacionService {
                 p.getCandidato().getNombre(),
                 p.getCandidato().getCorreo(),
                 p.getCandidato().getTelefono(),
+                p.getCandidato().getFechaCita(),
+                p.getCandidato().getHoraCita(),
                 p.getOfertaLaboral().getId(),
                 p.getOfertaLaboral().getCargo(),
                 p.getOfertaLaboral().getCategoria(),

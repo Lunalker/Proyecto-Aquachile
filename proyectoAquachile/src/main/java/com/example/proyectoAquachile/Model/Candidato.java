@@ -24,6 +24,14 @@ public class Candidato {
     @Column(name = "familia_cargo")
     private String familiaCargo;
 
+    @Column(name = "fecha_cita", length = 20)
+    private String fechaCita; // Ej: "2026-11-27"
+
+    @Column(name = "hora_cita", length = 10)
+    private String horaCita;  // Ej: "10:00"
+
+// Agrega sus getters y setters (getFechaCita / setFechaCita, getHoraCita / setHoraCita)
+
     // Campos extra basados en el Excel
     private String origen; // Interno o Externo
     private String ubicacion;
@@ -63,4 +71,17 @@ public class Candidato {
 
     public String getUnidad() { return unidad; }
     public void setUnidad(String unidad) { this.unidad = unidad; }
+
+    public String getFechaCita() {
+        return fechaCita;
+    }
+    public void setFechaCita(String fechaCita) {
+        this.fechaCita = fechaCita;
+    }
+    public String getHoraCita() {
+        return horaCita;
+    }
+    public void setHoraCita(String horaCita) {
+        this.horaCita = horaCita;
+    }
 }

@@ -42,10 +42,12 @@ public class PostulacionController {
             @RequestParam("telefono") String telefono,
             @RequestParam(value = "ubicacion", required = false) String ubicacion,
             @RequestParam(value = "unidad", required = false) String unidad,
+            @RequestParam(value = "fechaCita", required = false) String fechaCita,
+            @RequestParam(value = "horaCita", required = false) String horaCita,
             @RequestPart("archivo") MultipartFile archivo) {
 
         PostulacionService.DatosPostulantePublico datos = new PostulacionService.DatosPostulantePublico(
-                ofertaId, nombre, correo, telefono, ubicacion, unidad
+                ofertaId, nombre, correo, telefono, ubicacion, unidad, fechaCita, horaCita
         );
         PostulacionService.PostulacionResumenDTO creada = postulacionService.registrarPostulacionPublica(datos, archivo);
         return ResponseEntity.status(HttpStatus.CREATED).body(creada);

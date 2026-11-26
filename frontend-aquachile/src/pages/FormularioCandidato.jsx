@@ -12,6 +12,7 @@ import {
   combinarOpcionesUnicas,
 } from '../constants/catalogosCargos';
 import Icono from '../components/Icono';
+import AgendarCitaCalendar from '../components/AgendarCitaCalendar';
 
 const LIMITE_BYTES = 5 * 1024 * 1024;
 const EXTENSIONES = /\.(pdf|doc|docx)$/i;
@@ -548,6 +549,15 @@ export default function FormularioCandidato() {
                       {errores.archivo}
                     </p>
                 )}
+              </div>
+
+              <div className="field form-wide">
+                <AgendarCitaCalendar
+                  nombreCandidato={candidato.nombre || 'Postulante'}
+                  correoCandidato={candidato.correo}
+                  cargo={candidato.cargoPostula}
+                  ubicacion={candidato.ubicacion}
+                />
               </div>
             </div>
           </div>

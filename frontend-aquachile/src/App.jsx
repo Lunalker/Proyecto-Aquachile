@@ -11,6 +11,7 @@ import NuevaSolicitud from './pages/NuevaSolicitud';
 import ListadoSolicitudes from './pages/ListadoSolicitudes';
 import GestionarEvaluacion from './pages/GestionarEvaluacion';
 import DocumentosCandidato from './pages/DocumentosCandidato';
+import MenuNotificaciones from './components/MenuNotificaciones';
 
 function Logo({ oscuro = false }) {
   return <div className={`brand ${oscuro ? 'brand-dark' : ''}`}>
@@ -97,6 +98,7 @@ function EntornoPrivado() {
         </div>
         <div className="topbar-right">
           <span className="environment-pill"><span className="status-dot"/>MVP académico</span>
+          {analista && <MenuNotificaciones />}
           <div className="topbar-user"><span className="topbar-avatar">{usuario?.usuario?.charAt(0).toUpperCase() || 'U'}</span><span><strong>{usuario?.usuario}</strong><small>{analista ? 'Analista' : 'Evaluador'}</small></span></div>
         </div>
       </header>

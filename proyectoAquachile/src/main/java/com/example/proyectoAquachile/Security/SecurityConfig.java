@@ -44,7 +44,20 @@ public class SecurityConfig {
 
     @Bean
     public BearerTokenResolver bearerTokenResolver(JwtService jwtService) {
-        return jwtService.crearCookieBearerTokenResolver();
+        BearerTokenResolver resolverBase = jwtService.crearCookieBearerTokenResolver();
+        return request -> {
+            String path = request.getRequestURI();
+            if (path.startsWith("/api/ofertas/publicas")
+                    || path.equals("/api/postulaciones/publicas")
+                    || path.equals("/api/auth/login")
+                    || path.equals("/api/auth/registro")
+                    || path.equals("/api/auth/verificar-codigo")
+                    || path.equals("/api/auth/reenviar-codigo")
+                    || path.equals("/api/auth/csrf")) {
+                return null;
+            }
+            return resolverBase.resolve(request);
+        };
     }
 
     @Bean
