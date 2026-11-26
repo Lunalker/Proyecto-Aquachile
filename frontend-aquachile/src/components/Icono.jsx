@@ -22,6 +22,7 @@ const rutas = {
   filtro: <><path d="M3 5h18M6 12h12M9 19h6"/></>,
   escudo: <><path d="M12 22s8-4 8-11V5l-8-3-8 3v6c0 7 8 11 8 11z"/><path d="m9 11 2 2 4-4"/></>,
   olas: <><path d="M2 15c3-3 5-3 8 0s5 3 8 0 4-3 4-3"/><path d="M2 20c3-3 5-3 8 0s5 3 8 0 4-3 4-3"/><path d="M2 10c3-3 5-3 8 0s5 3 8 0 4-3 4-3"/></>,
+  campana: <><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></>,
 };
 
 export default function Icono({ nombre, size = 20, className = '' }) {

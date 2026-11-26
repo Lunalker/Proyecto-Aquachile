@@ -44,7 +44,6 @@ public class CandidatoController {
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Formato de correo no valido");
         }
 
-        // Se actualiza la entidad existente: nunca se crea un candidato nuevo desde este PUT.
         existente.setNombre(nuevosDatos.getNombre().trim());
         existente.setCorreo(nuevosDatos.getCorreo().trim());
         existente.setTelefono(nuevosDatos.getTelefono());
@@ -53,6 +52,8 @@ public class CandidatoController {
         existente.setOrigen(nuevosDatos.getOrigen());
         existente.setUbicacion(nuevosDatos.getUbicacion());
         existente.setUnidad(nuevosDatos.getUnidad());
+        existente.setFechaCita(nuevosDatos.getFechaCita());
+        existente.setHoraCita(nuevosDatos.getHoraCita());
 
         return candidatoRepository.save(existente);
     }

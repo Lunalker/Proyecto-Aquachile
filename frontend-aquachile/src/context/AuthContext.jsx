@@ -24,35 +24,43 @@ export function AuthProvider({ children }) {
         if (activo) setCargando(false);
       }
     }
-    const expirada = () => { setUsuario(null); invalidarCsrf(); };
+    const expirada = () => {
+      setUsuario(null);
+      invalidarCsrf();
+    };
     window.addEventListener('aquachile:sesion-expirada', expirada);
     comprobarSesion();
-    return () => { activo = false; window.removeEventListener('aquachile:sesion-expirada', expirada); };
+    return () => {
+      activo = false;
+      window.removeEventListener('aquachile:sesion-expirada', expirada);
+    };
   }, []);
 
   async function iniciarSesion(usuarioIngresado, clave) {
-    const datos = new URLSearchParams({ usuario: usuarioIngresado.trim(), clave });
-    const respuesta = await api.post('/auth/login', datos, {
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    const respuesta = await api.post('/auth/login', {
+      usuario: usuarioIngresado.trim(),
+      clave,
     });
-    // Spring Security cambia el token CSRF al autenticar la sesión.
     invalidarCsrf();
-    await asegurarCsrf();
+    await asegurarCsrf({ renovar: true });
     setUsuario(respuesta.data);
     setErrorConexion('');
     return respuesta.data;
   }
 
   async function cerrarSesion() {
-    await api.post('/auth/logout');
-    invalidarCsrf();
-    setUsuario(null);
+    try {
+      await api.post('/auth/logout');
+    } finally {
+      invalidarCsrf();
+      setUsuario(null);
+    }
   }
 
   return (
-    <AuthContext.Provider value={{ usuario, cargando, errorConexion, iniciarSesion, cerrarSesion }}>
-      {children}
-    </AuthContext.Provider>
+      <AuthContext.Provider value={{ usuario, cargando, errorConexion, iniciarSesion, cerrarSesion }}>
+        {children}
+      </AuthContext.Provider>
   );
 }
 

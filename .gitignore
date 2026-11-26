@@ -1,0 +1,25 @@
+# Secretos y entorno local
+.env
+.env.*
+*.pem
+*.key
+
+# Logs y estado de ejecución
+*.log
+.spring.status
+
+# IDE y sistema operativo
+.idea/
+*.iml
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Compilados y dependencias
+target/
+node_modules/
+dist/
+
+# Documentos reales o pruebas locales
+*.xlsx
+*.xls

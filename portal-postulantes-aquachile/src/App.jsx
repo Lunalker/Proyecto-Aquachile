@@ -1,156 +1,176 @@
-import { useRef, useState } from 'react';
-import api from './services/api';
+import { useEffect, useMemo, useState } from 'react';
+import { enviarPostulacionPublica, listarOfertasPublicas } from './services/api';
+import './App.css';
 
 const LIMITE_BYTES = 5 * 1024 * 1024;
-const EXTENSIONES = /\.(pdf|doc|docx)$/i;
-const etiquetaTamano = (n) => (n < 1024 ? `${n} B` : `${(n / 1024 / 1024).toFixed(2)} MB`);
+const EXTENSIONES_VALIDAS = /\.(pdf|doc|docx)$/i;
 
-const estadoInicial = () => ({
-  nombre: '',
-  correo: '',
-  telefono: '',
-  cargoPostula: '',
-  familiaCargo: '',
-  ubicacion: '',
-  unidad: '',
-  origen: 'Externo',
-});
+const BLOQUES_HORARIOS_40_MIN = (() => {
+  const bloques = [];
+  const inicioJornadaMin = 10 * 60; // 10:00
+  const finJornadaMin = 19 * 60;    // 19:00
+  const duracion = 40;
 
-const campos = [
-  { name: 'nombre', label: 'Nombre completo', required: true, placeholder: 'Ej.: Camila Soto' },
-  { name: 'correo', label: 'Correo electrónico', type: 'email', required: true, placeholder: 'ejemplo@correo.com' },
-  { name: 'telefono', label: 'Teléfono de contacto', type: 'tel', placeholder: 'Ej.: +56 9 1234 5678' },
-  { name: 'cargoPostula', label: 'Cargo al que postula', required: true, placeholder: 'Ej.: Analista de procesos' },
-  { name: 'familiaCargo', label: 'Área o familia de cargo', placeholder: 'Ej.: Profesional A' },
-  { name: 'ubicacion', label: 'Ciudad o ubicación', placeholder: 'Ej.: Puerto Montt' },
-  { name: 'unidad', label: 'Unidad de interés', placeholder: 'Ej.: Industrial' },
-];
+  for (let min = inicioJornadaMin; min + duracion <= finJornadaMin; min += duracion) {
+    const hIni = String(Math.floor(min / 60)).padStart(2, '0');
+    const mIni = String(min % 60).padStart(2, '0');
+    const fin = min + duracion;
+    const hFin = String(Math.floor(fin / 60)).padStart(2, '0');
+    const mFin = String(fin % 60).padStart(2, '0');
 
-function validarFormulario(datos) {
-  const limpio = Object.fromEntries(
-    Object.entries(datos).map(([k, v]) => [k, typeof v === 'string' ? v.trim() : v])
-  );
-  const errores = {};
-
-  if (!limpio.nombre || limpio.nombre.length < 3) {
-    errores.nombre = 'Ingresa tu nombre completo (mínimo 3 caracteres).';
+    bloques.push({
+      valor: `${hIni}:${mIni}`,
+      etiqueta: `${hIni}:${mIni} - ${hFin}:${mFin} hrs`,
+    });
   }
-  if (!limpio.correo || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(limpio.correo)) {
-    errores.correo = 'Ingresa un correo electrónico válido.';
-  }
-  if (!limpio.cargoPostula || limpio.cargoPostula.length < 2) {
-    errores.cargoPostula = 'Indica el cargo al que postulas.';
-  }
-  if (limpio.telefono) {
-    const digitos = limpio.telefono.replace(/\D/g, '');
-    if (!/^\+?[\d\s()-]+$/.test(limpio.telefono) || digitos.length < 8 || digitos.length > 15) {
-      errores.telefono = 'Ingresa un teléfono válido (8 a 15 dígitos) o déjalo vacío.';
-    }
-  }
-
-  return { limpio, errores, valido: Object.keys(errores).length === 0 };
-}
+  return bloques;
+})();
 
 export default function App() {
-  const [postulante, setPostulante] = useState(estadoInicial);
+  const [ofertas, setOfertas] = useState([]);
+  const [cargandoOfertas, setCargandoOfertas] = useState(true);
+  const [errorOfertas, setErrorOfertas] = useState('');
+
+  // Filtros
+  const [busqueda, setBusqueda] = useState('');
+  const [categoriaFiltro, setCategoriaFiltro] = useState('TODAS');
+  const [modalidadFiltro, setModalidadFiltro] = useState('TODAS');
+
+  // Oferta seleccionada y formulario de postulación
+  const [ofertaSeleccionada, setOfertaSeleccionada] = useState(null);
+  const [nombre, setNombre] = useState('');
+  const [correo, setCorreo] = useState('');
+  const [telefono, setTelefono] = useState('');
+  const [ubicacion, setUbicacion] = useState('');
+  const [unidad, setUnidad] = useState('');
+  const [fechaCita, setFechaCita] = useState('');
+  const [horaCita, setHoraCita] = useState('');
   const [archivo, setArchivo] = useState(null);
-  const [errores, setErrores] = useState({});
+
   const [enviando, setEnviando] = useState(false);
-  const [enviado, setEnviado] = useState(false);
-  const [mensaje, setMensaje] = useState('');
-  const inputArchivoRef = useRef(null);
+  const [errorEnvio, setErrorEnvio] = useState('');
+  const [confirmacion, setConfirmacion] = useState(null);
 
-  const handleChange = (e) => {
-    const { name, value } = e.target;
-    setPostulante((prev) => ({ ...prev, [name]: value }));
-    setErrores((prev) => ({ ...prev, [name]: undefined }));
-    setMensaje('');
-  };
+  useEffect(() => {
+    let activo = true;
+    async function cargar() {
+      setCargandoOfertas(true);
+      setErrorOfertas('');
+      try {
+        const lista = await listarOfertasPublicas();
+        if (!activo) return;
+        const arr = Array.isArray(lista) ? lista : [];
+        setOfertas(arr);
+        if (arr.length > 0) {
+          setOfertaSeleccionada(arr[0]);
+        }
+      } catch {
+        if (activo) {
+          setErrorOfertas('No fue posible cargar las ofertas laborales publicadas. Verifica que el backend esté activo.');
+        }
+      } finally {
+        if (activo) setCargandoOfertas(false);
+      }
+    }
+    cargar();
+    return () => { activo = false; };
+  }, []);
 
-  function elegirArchivo(evento) {
-    const seleccionado = evento.target.files?.[0] || null;
+  const categorias = useMemo(() => {
+    const unicas = new Set(ofertas.map(o => o.categoria).filter(Boolean));
+    return ['TODAS', ...Array.from(unicas)];
+  }, [ofertas]);
+
+  const modalidades = useMemo(() => {
+    const unicas = new Set(ofertas.map(o => o.modalidad).filter(Boolean));
+    return ['TODAS', ...Array.from(unicas)];
+  }, [ofertas]);
+
+  const ofertasFiltradas = useMemo(() => {
+    const q = busqueda.trim().toLowerCase();
+    return ofertas.filter(o => {
+      if (categoriaFiltro !== 'TODAS' && o.categoria !== categoriaFiltro) return false;
+      if (modalidadFiltro !== 'TODAS' && o.modalidad !== modalidadFiltro) return false;
+      if (!q) return true;
+      return (
+        (o.cargo || '').toLowerCase().includes(q) ||
+        (o.categoria || '').toLowerCase().includes(q) ||
+        (o.ubicacion || '').toLowerCase().includes(q) ||
+        (o.descripcion || '').toLowerCase().includes(q)
+      );
+    });
+  }, [ofertas, busqueda, categoriaFiltro, modalidadFiltro]);
+
+  function seleccionarOferta(oferta) {
+    setOfertaSeleccionada(oferta);
+    setErrorEnvio('');
+    setConfirmacion(null);
+  }
+
+  function manejarArchivo(e) {
+    const file = e.target.files?.[0] || null;
     setArchivo(null);
-    setMensaje('');
-    setErrores((prev) => ({ ...prev, archivo: undefined }));
+    setErrorEnvio('');
+    if (!file) return;
 
-    if (!seleccionado) return;
-
-    if (!EXTENSIONES.test(seleccionado.name)) {
-      setErrores((prev) => ({ ...prev, archivo: 'Solo se aceptan documentos PDF, DOC o DOCX.' }));
-      evento.target.value = '';
+    if (!EXTENSIONES_VALIDAS.test(file.name)) {
+      setErrorEnvio('Formato no válido. Adjunta un CV en PDF, DOC o DOCX.');
+      e.target.value = '';
       return;
     }
-
-    if (seleccionado.size === 0 || seleccionado.size > LIMITE_BYTES) {
-      setErrores((prev) => ({ ...prev, archivo: 'El archivo debe pesar entre 1 byte y 5 MB.' }));
-      evento.target.value = '';
+    if (file.size === 0 || file.size > LIMITE_BYTES) {
+      setErrorEnvio('El archivo CV debe pesar entre 1 byte y 5 MB.');
+      e.target.value = '';
       return;
     }
-
-    setArchivo(seleccionado);
+    setArchivo(file);
   }
 
-  function quitarArchivo() {
-    setArchivo(null);
-    setErrores((prev) => ({ ...prev, archivo: undefined }));
-    if (inputArchivoRef.current) {
-      inputArchivoRef.current.value = '';
+  async function manejarPostulacion(e) {
+    e.preventDefault();
+    if (!ofertaSeleccionada || enviando) return;
+    if (!archivo) {
+      setErrorEnvio('Debes adjuntar tu currículum en formato PDF, DOC o DOCX.');
+      return;
     }
-  }
-
-  function abrirArchivoLocal() {
-    if (!archivo) return;
-    const urlTemporal = URL.createObjectURL(archivo);
-    if (archivo.name.toLowerCase().endsWith('.pdf')) {
-      window.open(urlTemporal, '_blank', 'noopener,noreferrer');
-    } else {
-      const enlace = document.createElement('a');
-      enlace.href = urlTemporal;
-      enlace.download = archivo.name;
-      document.body.appendChild(enlace);
-      enlace.click();
-      enlace.remove();
-    }
-    window.setTimeout(() => URL.revokeObjectURL(urlTemporal), 15000);
-  }
-
-  async function handleSubmit(event) {
-    event.preventDefault();
-    if (enviando) return;
-    setMensaje('');
-
-    const { limpio, errores: erroresValidacion, valido } = validarFormulario(postulante);
-    setErrores(erroresValidacion);
-    if (!valido) return;
 
     setEnviando(true);
+    setErrorEnvio('');
+    setConfirmacion(null);
+
     try {
-      const resCandidato = await api.post('/candidatos', limpio);
-      const nuevoId = resCandidato.data?.id;
-
-      let textoExito = '¡Postulación enviada correctamente! Tus antecedentes quedaron registrados para revisión.';
-
-      if (archivo && nuevoId) {
-        try {
-          const formData = new FormData();
-          formData.append('archivo', archivo);
-          await api.post(`/documentos/candidatos/${nuevoId}`, formData);
-          textoExito = '¡Postulación y currículum enviados correctamente! Nuestro equipo revisará tus antecedentes.';
-        } catch {
-          textoExito = 'Tus datos fueron registrados, pero hubo un problema al adjuntar el currículum.';
-        }
-      }
-
-      setMensaje(textoExito);
-      setPostulante(estadoInicial());
-      quitarArchivo();
-      setErrores({});
-      setEnviado(true);
-    } catch (error) {
-      if (error.response?.status === 409 || error.response?.status === 500) {
-        setMensaje('Ya existe una postulación registrada con ese correo electrónico.');
+      const resultado = await enviarPostulacionPublica({
+        ofertaId: ofertaSeleccionada.id,
+        nombre,
+        correo,
+        telefono,
+        ubicacion,
+        unidad,
+        fechaCita,
+        horaCita,
+        archivo,
+      });
+      setConfirmacion(resultado);
+      setNombre('');
+      setCorreo('');
+      setTelefono('');
+      setUbicacion('');
+      setUnidad('');
+      setFechaCita('');
+      setHoraCita('');
+      setArchivo(null);
+      e.target.reset();
+    } catch (err) {
+      const status = err.response?.status;
+      const mensajeServidor = err.response?.data?.message || err.response?.data?.error;
+      if (status === 409) {
+        setErrorEnvio(mensajeServidor || 'Ya registraste una postulación previa para esta oferta laboral.');
+      } else if (status === 413) {
+        setErrorEnvio('El archivo supera el límite máximo permitido de 5 MB.');
+      } else if (status === 400 || status === 404) {
+        setErrorEnvio(mensajeServidor || 'Revisa los datos ingresados y verifica que el archivo CV sea auténtico.');
       } else {
-        setMensaje('No se pudo enviar la postulación. Verifica tu conexión e inténtalo nuevamente.');
+        setErrorEnvio('Ocurrió un error al procesar tu postulación. Inténtalo nuevamente.');
       }
     } finally {
       setEnviando(false);
@@ -158,120 +178,323 @@ export default function App() {
   }
 
   return (
-    <div className="portal-wrapper">
-      <header className="portal-topbar">
-        <div className="portal-topbar-inner">
-          <div className="brand">
-            <span className="brand-badge">AC</span>
-            <div>
-              <strong>AquaChile</strong>
-              <small>PORTAL DE POSTULACIÓN EXTERNA</small>
-            </div>
-          </div>
-          <span className="portal-tag">Selección y Talento</span>
+    <div style={{ maxWidth: '1160px', margin: '0 auto', padding: '1.5rem 1rem 3rem', fontFamily: 'system-ui, -apple-system, sans-serif', color: '#0f172a' }}>
+      <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem', paddingBottom: '1.25rem', borderBottom: '1px solid #e2e8f0', marginBottom: '1.5rem' }}>
+        <div>
+          <span style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.08em', color: '#0f766e', textTransform: 'uppercase' }}>
+            Portal de Postulantes · AquaChile
+          </span>
+          <h1 style={{ margin: '0.25rem 0', fontSize: '1.75rem' }}>Oportunidades Laborales Publicadas</h1>
+          <p style={{ margin: 0, color: '#475569' }}>
+            Selecciona una vacante disponible, revisa sus requisitos y envía tu currículum en un único paso seguro.
+          </p>
+        </div>
+        <div style={{ padding: '0.55rem 0.9rem', borderRadius: '999px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', fontSize: '0.85rem', fontWeight: 600 }}>
+          Entorno académico · Datos ficticios
         </div>
       </header>
 
-      <main className="portal-main">
-        <div className="portal-hero">
-          <p className="eyebrow">TRABAJA CON NOSOTROS</p>
-          <h1>Postulación de candidatos</h1>
-          <p>Completa tus antecedentes y adjunta tu currículum para participar en nuestros procesos de evaluación.</p>
+      {/* Filtros de búsqueda */}
+      <section aria-label="Filtros de ofertas laborales" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem', padding: '1rem', borderRadius: '12px', background: '#f8fafc', border: '1px solid #cbd5e1', marginBottom: '1.5rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <label htmlFor="filtro-busqueda" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Buscar cargo o ubicación</label>
+          <input
+            id="filtro-busqueda"
+            type="search"
+            value={busqueda}
+            onChange={e => setBusqueda(e.target.value)}
+            placeholder="Ej: Calbuco, Calidad, Cultivo..."
+            style={{ padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+          />
         </div>
-
-        <div className="helper-banner">
-          <strong>Aviso académico:</strong> utiliza datos ficticios y currículums de prueba para demostración del sistema.
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <label htmlFor="filtro-categoria" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Categoría</label>
+          <select
+            id="filtro-categoria"
+            value={categoriaFiltro}
+            onChange={e => setCategoriaFiltro(e.target.value)}
+            style={{ padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+          >
+            {categorias.map(cat => (
+              <option key={cat} value={cat}>{cat === 'TODAS' ? 'Todas las categorías' : cat}</option>
+            ))}
+          </select>
         </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.3rem' }}>
+          <label htmlFor="filtro-modalidad" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Modalidad</label>
+          <select
+            id="filtro-modalidad"
+            value={modalidadFiltro}
+            onChange={e => setModalidadFiltro(e.target.value)}
+            style={{ padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+          >
+            {modalidades.map(mod => (
+              <option key={mod} value={mod}>{mod === 'TODAS' ? 'Todas las modalidades' : mod}</option>
+            ))}
+          </select>
+        </div>
+      </section>
 
-        {mensaje && (
-          <div role="status" className={`alert ${enviado ? 'alert-success' : 'alert-error'}`}>
-            {mensaje}
-          </div>
-        )}
+      {errorOfertas && (
+        <div role="alert" style={{ padding: '0.9rem', borderRadius: '8px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', marginBottom: '1rem' }}>
+          {errorOfertas}
+        </div>
+      )}
 
-        {enviado ? (
-          <section className="card success-card">
-            <h2>¡Gracias por postular!</h2>
-            <p>Tu información ya se encuentra disponible en el panel del equipo de reclutamiento de AquaChile.</p>
-            <button
-              type="button"
-              className="btn btn-primary"
-              onClick={() => {
-                setEnviado(false);
-                setMensaje('');
-              }}
-            >
-              Enviar otra postulación
-            </button>
-          </section>
-        ) : (
-          <form onSubmit={handleSubmit} noValidate className="card">
-            <div className="card-head">
-              <h2>Información del postulante</h2>
-              <p>Los campos marcados con * son obligatorios.</p>
-            </div>
-
-            <div className="card-body">
-              <div className="form-grid">
-                {campos.map(({ name, label, type, required, placeholder }) => (
-                  <div className="field" key={name}>
-                    <label htmlFor={name}>
-                      {label}
-                      {required ? ' *' : ''}
-                    </label>
-                    <input
-                      id={name}
-                      type={type || 'text'}
-                      name={name}
-                      value={postulante[name]}
-                      placeholder={placeholder}
-                      onChange={handleChange}
-                      disabled={enviando}
-                    />
-                    {errores[name] && <span className="field-error">{errores[name]}</span>}
-                  </div>
-                ))}
-
-                <div className="field field-wide">
-                  <label htmlFor="cv-externo">Currículum vitae (PDF, DOC o DOCX)</label>
-                  <div className="file-row">
-                    <input
-                      ref={inputArchivoRef}
-                      id="cv-externo"
-                      type="file"
-                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-                      onChange={elegirArchivo}
-                      disabled={enviando}
-                    />
-                    {archivo && (
-                      <div className="file-actions">
-                        <button type="button" className="btn btn-soft" onClick={abrirArchivoLocal} disabled={enviando}>
-                          Ver archivo
-                        </button>
-                        <button type="button" className="btn btn-secondary" onClick={quitarArchivo} disabled={enviando}>
-                          Quitar
-                        </button>
+      {cargandoOfertas ? (
+        <div role="status" style={{ padding: '2rem', textAlign: 'center', color: '#475569' }}>
+          Cargando ofertas laborales disponibles...
+        </div>
+      ) : (
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: '1.5rem', alignItems: 'start' }}>
+          {/* Columna izquierda: listado de ofertas */}
+          <section aria-label="Listado de ofertas publicadas" style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            <h2 style={{ margin: 0, fontSize: '1.1rem' }}>
+              Vacantes disponibles ({ofertasFiltradas.length})
+            </h2>
+            {ofertasFiltradas.length === 0 ? (
+              <div style={{ padding: '1.25rem', borderRadius: '10px', border: '1px dashed #cbd5e1', background: '#ffffff' }}>
+                No se encontraron ofertas con los filtros seleccionados.
+              </div>
+            ) : (
+              ofertasFiltradas.map(oferta => {
+                const activa = ofertaSeleccionada?.id === oferta.id;
+                return (
+                  <article
+                    key={oferta.id}
+                    style={{
+                      padding: '1rem',
+                      borderRadius: '12px',
+                      background: activa ? '#f0fdfa' : '#ffffff',
+                      border: activa ? '2px solid #0f766e' : '1px solid #cbd5e1',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: '0.5rem',
+                    }}
+                  >
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem' }}>
+                      <div>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, padding: '0.15rem 0.55rem', borderRadius: '999px', background: '#e0f2fe', color: '#0369a1' }}>
+                          {oferta.categoria}
+                        </span>
+                        <h3 style={{ margin: '0.4rem 0 0.15rem', fontSize: '1.08rem' }}>{oferta.cargo}</h3>
+                        <small style={{ color: '#475569' }}>
+                          {oferta.ubicacion} · {oferta.modalidad} · Cupos: {oferta.cupos}
+                        </small>
                       </div>
+                      <button
+                        type="button"
+                        onClick={() => seleccionarOferta(oferta)}
+                        style={{
+                          padding: '0.45rem 0.85rem',
+                          borderRadius: '8px',
+                          border: 'none',
+                          background: activa ? '#0f766e' : '#0284c7',
+                          color: '#ffffff',
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                        }}
+                      >
+                        {activa ? 'Seleccionada' : 'Postular'}
+                      </button>
+                    </div>
+                    <p style={{ margin: 0, fontSize: '0.9rem', color: '#334155' }}>{oferta.descripcion}</p>
+                    {oferta.rangoSalarial && (
+                      <small style={{ fontWeight: 600, color: '#065f46' }}>Renta referencial: {oferta.rangoSalarial}</small>
+                    )}
+                  </article>
+                );
+              })
+            )}
+          </section>
+
+          {/* Columna derecha: detalle de la oferta y formulario multipart único */}
+          <section aria-label="Detalle de oferta y formulario de postulación" style={{ padding: '1.25rem', borderRadius: '12px', background: '#ffffff', border: '1px solid #cbd5e1' }}>
+            {!ofertaSeleccionada ? (
+              <p>Selecciona una oferta laboral de la lista para ver sus detalles y postular.</p>
+            ) : (
+              <>
+                <div style={{ borderBottom: '1px solid #e2e8f0', paddingBottom: '1rem', marginBottom: '1rem' }}>
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#0f766e', textTransform: 'uppercase' }}>
+                    {ofertaSeleccionada.categoria} · {ofertaSeleccionada.modalidad}
+                  </span>
+                  <h2 style={{ margin: '0.25rem 0' }}>{ofertaSeleccionada.cargo}</h2>
+                  <p style={{ margin: '0 0 0.75rem', fontSize: '0.9rem', color: '#475569' }}>
+                    Ubicación: <strong>{ofertaSeleccionada.ubicacion}</strong> · Cupos: <strong>{ofertaSeleccionada.cupos}</strong>
+                    {ofertaSeleccionada.rangoSalarial ? ` · Rango: ${ofertaSeleccionada.rangoSalarial}` : ''}
+                  </p>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', fontSize: '0.88rem', color: '#1e293b' }}>
+                    <div><strong>Funciones:</strong> {ofertaSeleccionada.funciones}</div>
+                    <div><strong>Requisitos:</strong> {ofertaSeleccionada.requisitos}</div>
+                    {ofertaSeleccionada.beneficios && (
+                      <div><strong>Beneficios:</strong> {ofertaSeleccionada.beneficios}</div>
                     )}
                   </div>
-                  <small className="field-help">
-                    {archivo
-                      ? `Seleccionado: ${archivo.name} (${etiquetaTamano(archivo.size)})`
-                      : 'Tamaño máximo permitido: 5 MB.'}
-                  </small>
-                  {errores.archivo && <span className="field-error">{errores.archivo}</span>}
                 </div>
-              </div>
-            </div>
 
-            <div className="card-footer">
-              <button type="submit" className="btn btn-primary" disabled={enviando}>
-                {enviando ? 'Enviando postulación...' : 'Enviar postulación'}
-              </button>
-            </div>
-          </form>
-        )}
-      </main>
+                <h3 style={{ margin: '0 0 0.75rem' }}>Enviar postulación y CV</h3>
+
+                {errorEnvio && (
+                  <div role="alert" style={{ padding: '0.8rem', borderRadius: '8px', background: '#fef2f2', border: '1px solid #fecaca', color: '#991b1b', marginBottom: '0.85rem', fontSize: '0.9rem' }}>
+                    {errorEnvio}
+                  </div>
+                )}
+
+                {confirmacion && (
+                  <div role="status" style={{ padding: '0.9rem', borderRadius: '8px', background: '#ecfdf5', border: '1px solid #a7f3d0', color: '#065f46', marginBottom: '0.85rem', fontSize: '0.9rem' }}>
+                    <strong>¡Postulación registrada correctamente!</strong>
+                    <div>Postulación #{confirmacion.id} · Cargo: {confirmacion.ofertaCargo}</div>
+                    <div>Contenedor CV asignado: <code>{confirmacion.contenedorUuid}</code></div>
+                  </div>
+                )}
+
+                <form onSubmit={manejarPostulacion} style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label htmlFor="postulante-nombre" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Nombre completo *</label>
+                    <input
+                      id="postulante-nombre"
+                      type="text"
+                      required
+                      minLength={3}
+                      value={nombre}
+                      onChange={e => setNombre(e.target.value)}
+                      placeholder="Ej: Sofía Valenzuela Soto"
+                      disabled={enviando}
+                      style={{ padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label htmlFor="postulante-correo" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Correo electrónico *</label>
+                    <input
+                      id="postulante-correo"
+                      type="email"
+                      required
+                      value={correo}
+                      onChange={e => setCorreo(e.target.value)}
+                      placeholder="ejemplo@correo.cl"
+                      disabled={enviando}
+                      style={{ padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label htmlFor="postulante-telefono" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Teléfono de contacto *</label>
+                    <input
+                      id="postulante-telefono"
+                      type="tel"
+                      required
+                      minLength={6}
+                      value={telefono}
+                      onChange={e => setTelefono(e.target.value)}
+                      placeholder="+56 9 1234 5678"
+                      disabled={enviando}
+                      style={{ padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                    />
+                  </div>
+
+                  <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      <label htmlFor="postulante-ubicacion" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Comuna / Ciudad</label>
+                      <input
+                        id="postulante-ubicacion"
+                        type="text"
+                        value={ubicacion}
+                        onChange={e => setUbicacion(e.target.value)}
+                        placeholder="Ej: Puerto Montt"
+                        disabled={enviando}
+                        style={{ padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                      />
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                      <label htmlFor="postulante-unidad" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Área de interés</label>
+                      <input
+                        id="postulante-unidad"
+                        type="text"
+                        value={unidad}
+                        onChange={e => setUnidad(e.target.value)}
+                        placeholder="Ej: Operaciones"
+                        disabled={enviando}
+                        style={{ padding: '0.55rem 0.75rem', borderRadius: '8px', border: '1px solid #cbd5e1' }}
+                      />
+                    </div>
+                  </div>
+
+                  {/* Agendamiento opcional de entrevista */}
+                  <div style={{ padding: '0.85rem', borderRadius: '10px', background: '#f0fdfa', border: '1px solid #99f6e4' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 700, color: '#0f766e', marginBottom: '0.5rem' }}>
+                      Preferencia de entrevista (40 min · 10:00 a 19:00 hrs)
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.65rem' }}>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <label htmlFor="postulante-fecha-cita" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Fecha preferida</label>
+                        <input
+                          id="postulante-fecha-cita"
+                          type="date"
+                          value={fechaCita}
+                          min={new Date().toISOString().split('T')[0]}
+                          onChange={e => setFechaCita(e.target.value)}
+                          disabled={enviando}
+                          style={{ padding: '0.5rem 0.65rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+                        />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                        <label htmlFor="postulante-hora-cita" style={{ fontSize: '0.8rem', fontWeight: 600 }}>Bloque horario</label>
+                        <select
+                          id="postulante-hora-cita"
+                          value={horaCita}
+                          onChange={e => setHoraCita(e.target.value)}
+                          disabled={enviando}
+                          style={{ padding: '0.5rem 0.65rem', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#ffffff' }}
+                        >
+                          <option value="">Selecciona horario...</option>
+                          {BLOQUES_HORARIOS_40_MIN.map(b => (
+                            <option key={b.valor} value={b.valor}>
+                              {b.etiqueta}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+                    <label htmlFor="postulante-cv" style={{ fontSize: '0.85rem', fontWeight: 600 }}>Currículum Vitae (PDF, DOC o DOCX, máx. 5 MB) *</label>
+                    <input
+                      id="postulante-cv"
+                      type="file"
+                      required
+                      accept=".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                      onChange={manejarArchivo}
+                      disabled={enviando}
+                    />
+                    <small style={{ color: '#475569' }}>
+                      {archivo ? `Archivo seleccionado: ${archivo.name} (${(archivo.size / 1024 / 1024).toFixed(2)} MB)` : 'Se valida la firma binaria real del documento en el servidor.'}
+                    </small>
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={enviando || !archivo}
+                    style={{
+                      padding: '0.75rem 1rem',
+                      borderRadius: '8px',
+                      border: 'none',
+                      background: enviando || !archivo ? '#94a3b8' : '#0f766e',
+                      color: '#ffffff',
+                      fontWeight: 700,
+                      fontSize: '0.95rem',
+                      cursor: enviando || !archivo ? 'not-allowed' : 'pointer',
+                    }}
+                  >
+                    {enviando ? 'Enviando postulación y CV...' : `Postular a ${ofertaSeleccionada.cargo}`}
+                  </button>
+                </form>
+              </>
+            )}
+          </section>
+        </div>
+      )}
     </div>
   );
 }

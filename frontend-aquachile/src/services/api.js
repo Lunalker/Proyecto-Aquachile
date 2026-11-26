@@ -1,52 +1,163 @@
 import axios from 'axios';
 
-// Todas las solicitudes deben pasar por esta instancia (cookie de sesión + CSRF).
+// Todas las solicitudes deben pasar por esta instancia (cookie HttpOnly JWT + CSRF).
 const api = axios.create({
-  baseURL: 'http://localhost:8080/api',
-  withCredentials: true,
-  timeout: 12000,
+    baseURL: 'http://localhost:8080/api',
+    withCredentials: true,
+    timeout: 45000,
 });
 
 let csrfToken = null;
 let csrfPromise = null;
 
+function leerCookieXsrf() {
+    const match = document.cookie.match(/(?:^|;\s*)XSRF-TOKEN=([^;]*)/);
+    return match ? decodeURIComponent(match[1]) : null;
+}
+
 export function invalidarCsrf() {
-  csrfToken = null;
+    csrfToken = null;
 }
 
 export async function asegurarCsrf({ renovar = false } = {}) {
-  if (renovar) csrfToken = null;
-  if (csrfToken) return csrfToken;
-  if (!csrfPromise) {
-    csrfPromise = api.get('/auth/csrf')
-      .then((respuesta) => {
-        csrfToken = respuesta.data.token;
-        return csrfToken;
-      })
-      .finally(() => { csrfPromise = null; });
-  }
-  return csrfPromise;
+    if (!renovar) {
+        const cookieActual = leerCookieXsrf();
+        if (cookieActual) {
+            csrfToken = cookieActual;
+            return csrfToken;
+        }
+        if (csrfToken) return csrfToken;
+    } else {
+        csrfToken = null;
+    }
+
+    if (!csrfPromise) {
+        csrfPromise = api.get('/auth/csrf')
+            .then((respuesta) => {
+                csrfToken = leerCookieXsrf() || respuesta.data.token;
+                return csrfToken;
+            })
+            .finally(() => { csrfPromise = null; });
+    }
+    return csrfPromise;
 }
 
 api.interceptors.request.use(async (config) => {
-  const metodo = (config.method || 'get').toLowerCase();
-  if (['post', 'put', 'patch', 'delete'].includes(metodo)) {
-    const token = await asegurarCsrf();
-    config.headers.set('X-CSRF-TOKEN', token);
-  }
-  return config;
+    const metodo = (config.method || 'get').toLowerCase();
+    if (['post', 'put', 'patch', 'delete'].includes(metodo)) {
+        const token = await asegurarCsrf();
+        config.headers.set('X-CSRF-TOKEN', token);
+    }
+    return config;
 });
 
 api.interceptors.response.use(
-  (respuesta) => respuesta,
-  (error) => {
-    const url = String(error.config?.url || '');
-    if (error.response?.status === 401 && !url.startsWith('/auth/')) {
-      // Una sesión vencida obliga a entrar de nuevo; no se simula un logout.
-      window.dispatchEvent(new Event('aquachile:sesion-expirada'));
+    (respuesta) => respuesta,
+    async (error) => {
+        const config = error.config;
+        const url = String(config?.url || '');
+        if (error.response?.status === 401 && !url.startsWith('/auth/')) {
+            window.dispatchEvent(new Event('aquachile:sesion-expirada'));
+            return Promise.reject(error);
+        }
+        if (
+            error.response?.status === 403 &&
+            config &&
+            !config._reintentoCsrf &&
+            ['post', 'put', 'patch', 'delete'].includes((config.method || '').toLowerCase())
+        ) {
+            config._reintentoCsrf = true;
+            const nuevoToken = await asegurarCsrf({ renovar: true });
+            config.headers.set('X-CSRF-TOKEN', nuevoToken);
+            return api(config);
+        }
+        return Promise.reject(error);
     }
-    return Promise.reject(error);
-  }
 );
+
+// --- Servicios de Postulaciones y Documentos por Postulación ---
+
+export const listarPostulaciones = async () => {
+    const respuesta = await api.get('/postulaciones');
+    return respuesta.data;
+};
+
+export const listarPostulacionesCandidato = async (candidatoId) => {
+    const respuesta = await api.get(`/postulaciones/candidato/${candidatoId}`);
+    return respuesta.data;
+};
+
+export const obtenerCvPostulacion = async (postulacionId) => {
+    const respuesta = await api.get(`/postulaciones/${postulacionId}/cv`);
+    return respuesta.data;
+};
+
+export const descargarCvPostulacion = async (postulacionId) => {
+    return api.get(`/postulaciones/${postulacionId}/cv/descargar`, {
+        responseType: 'blob',
+    });
+};
+
+export const obtenerAnalisisPostulacion = async (postulacionId) => {
+    const respuesta = await api.get(`/postulaciones/${postulacionId}/analisis`);
+    return respuesta.status === 204 ? null : respuesta.data;
+};
+
+export const analizarCvPostulacion = async (postulacionId, { forzar = false } = {}) => {
+    const respuesta = await api.post(`/postulaciones/${postulacionId}/analizar-ia`, null, {
+        params: { forzar },
+    });
+    return respuesta.data;
+};
+
+export const guardarValidacionPostulacion = async (postulacionId, payload) => {
+    const respuesta = await api.put(`/postulaciones/${postulacionId}/validar`, payload);
+    return respuesta.data;
+};
+
+// --- Compatibilidad con consultas heredadas por candidato / solicitud ---
+
+export const obtenerAnalisisCv = async (candidatoId) => {
+    const respuesta = await api.get(`/documentos/candidatos/${candidatoId}/analisis`);
+    return respuesta.status === 204 ? null : respuesta.data;
+};
+
+export const analizarCvCandidato = async (candidatoId, { forzar = false } = {}) => {
+    const respuesta = await api.post(`/documentos/candidatos/${candidatoId}/analizar-ia`, null, {
+        params: { forzar },
+    });
+    return respuesta.data;
+};
+
+export const guardarValidacionAnalisis = async (candidatoId, payload) => {
+    const respuesta = await api.put(`/documentos/candidatos/${candidatoId}/validar`, payload);
+    return respuesta.data;
+};
+
+export const obtenerAnalisisValidadoSolicitud = async (solicitudId) => {
+    const respuesta = await api.get(`/documentos/solicitudes/${solicitudId}/analisis-validado`);
+    return respuesta.status === 204 ? null : respuesta.data;
+};
+
+export const generarPreguntasApoyoSolicitud = async (solicitudId) => {
+    const respuesta = await api.post(`/documentos/solicitudes/${solicitudId}/preguntas-apoyo`);
+    return respuesta.data;
+};
+
+export const listarRequisitosCargo = async (cargo) => {
+    const respuesta = await api.get('/requisitos-cargo', {
+        params: cargo ? { cargo } : undefined,
+    });
+    return respuesta.data;
+};
+
+export const crearRequisitoCargo = async (payload) => {
+    const respuesta = await api.post('/requisitos-cargo', payload);
+    return respuesta.data;
+};
+
+export const eliminarRequisitoCargo = async (id) => {
+    await api.delete(`/requisitos-cargo/${id}`);
+};
 
 export default api;

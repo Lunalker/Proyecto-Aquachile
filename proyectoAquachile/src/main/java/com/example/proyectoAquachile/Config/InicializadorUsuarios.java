@@ -16,10 +16,10 @@ public class InicializadorUsuarios implements CommandLineRunner {
     private final String claveEvaluador;
 
     public InicializadorUsuarios(
-            UsuarioRepository repo,
-            PasswordEncoder encoder,
-            @Value("${AQUACHILE_ANALISTA_PASSWORD:admin123}") String claveAnalista,
-            @Value("${AQUACHILE_EVALUADOR_PASSWORD:user123}") String claveEvaluador) {
+        UsuarioRepository repo,
+        PasswordEncoder encoder,
+            @Value("${aquachile.analista.password:admin123}") String claveAnalista,
+            @Value("${aquachile.evaluador.password:user123}") String claveEvaluador) {
         this.repo = repo;
         this.encoder = encoder;
         this.claveAnalista = claveAnalista;
